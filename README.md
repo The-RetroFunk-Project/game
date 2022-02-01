@@ -2,7 +2,7 @@
 
 ![Stars](https://img.shields.io/github/stars/TheNachoBIT/TheRetroFunkProject)
 ![Issues](https://img.shields.io/github/issues/TheNachoBIT/TheRetroFunkProject)
-![License](https://img.shields.io/badge/license-GPLv3-blue)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## Installation
 
