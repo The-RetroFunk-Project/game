@@ -264,7 +264,7 @@ void RendererCore::OpenGL_Start_DrawCall(DrawCall& d)
 {
 	if (d.allIndices.size() == 0)
 	{
-		d.mainShader = new Shader(Files::Read("Resources/basic.vert"), Files::Read("Resources/basic.frag"));
+		d.mainShader = new Shader(Files::Read("EngineResources/basic.vert"), Files::Read("EngineResources/basic.frag"));
 
 		uint32_t indSize = 600000;
 		d.allIndices.resize(indSize);
