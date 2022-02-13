@@ -64,7 +64,12 @@ void ImGUIElement::ScaleWithScreenResolution(Vector2 percentageScale)
 	if (screenSize.x == -1)
 		finalW = size.x;
 	else
-		finalW = Graphics::GetMainWindow().width * (screenSize.x / 100.0f);
+	{
+		if (owner == nullptr)
+			finalW = Graphics::GetMainWindow().width * (screenSize.x / 100.0f);
+		else
+			finalW = owner->size.x * (screenSize.x / 100.0f);
+	}
 
 	if (minScale.x != -1)
 		if (finalW < minScale.x)
@@ -80,7 +85,12 @@ void ImGUIElement::ScaleWithScreenResolution(Vector2 percentageScale)
 		finalH = size.y;
 	}
 	else
-		finalH = Graphics::GetMainWindow().height * (screenSize.y / 100.0f);
+	{
+		if (owner == nullptr)
+			finalH = Graphics::GetMainWindow().height * (screenSize.y / 100.0f);
+		else
+			finalH = owner->size.y * (screenSize.y / 100.0f);
+	}
 
 	if (minScale.y != -1)
 		if (finalH < minScale.y)
@@ -94,6 +104,25 @@ void ImGUIElement::ScaleWithScreenResolution(Vector2 percentageScale)
 	Scale(Vector2(finalW, finalH));
 }
 
+void ImGUIElement::SetCurrentSizeToScreenSize(bool setX, bool setY)
+{
+	if (setX)
+	{
+		if(owner == nullptr)
+			screenSize.x = (size.x / Graphics::GetMainWindow().width) * 100.0f;
+		else
+			screenSize.x = (size.x / owner->size.x) * 100.0f;
+	}
+
+	if (setY)
+	{
+		if (owner == nullptr)
+			screenSize.y = (size.y / Graphics::GetMainWindow().height) * 100.0f;
+		else
+			screenSize.y = (size.y / owner->size.y) * 100.0f;
+	}
+}
+
 bool ImGUIElement::IsMouseOnAnyWindow()
 {
 	return _isMouseOnAnyWindow;
@@ -103,6 +132,11 @@ void ImGUIElement::SetAlignPivot(Vector2 a)
 {
 	Alignment = AlignTo::Custom;
 	alignPivot = a;
+}
+
+void ImGUIElement::ForceAlignToCustom()
+{
+	Alignment = AlignTo::Custom;
 }
 
 void ImGUIElement::OpenWithMouseButton(int input)
@@ -174,7 +208,7 @@ void ShadeVertsLinearColorGradientSetAlpha(ImDrawList* draw_list, int vert_start
     }
 }
 
-void ImGUIElement::RenderGradients(std::vector<std::pair<Color, float>>& b, ImVec2 topL, ImVec2 botR)
+void ImGUIElement::RenderGradients(ImDrawList* drawList, std::vector<std::pair<Color, float>>& b, ImVec2 topL, ImVec2 botR)
 {
 	std::vector<std::pair<Color, float>> finalB;
 
@@ -221,14 +255,19 @@ void ImGUIElement::RenderGradients(std::vector<std::pair<Color, float>>& b, ImVe
 			finalBorderRadius = borderRadius;
 		}
 
-		const int vtx_idx_0 = ImGui::GetWindowDrawList()->VtxBuffer.Size;
-		ImGui::GetWindowDrawList()->AddRectFilled(topLFinal, botRFinal, ImColor(1, 1, 1, 1), finalBorderRadius, flags);
-		const int vtx_idx_1 = ImGui::GetWindowDrawList()->VtxBuffer.Size;
-		ImGui::GetWindowDrawList()->AddRectFilled(topLFinal, botRFinal, ImColor(1, 1, 1, 1), finalBorderRadius, flags);
-		const int vtx_idx_2 = ImGui::GetWindowDrawList()->VtxBuffer.Size;
+		ImDrawList* final_drawList = drawList;
 
-		ShadeVertsLinearColorGradientSetAlpha(ImGui::GetWindowDrawList(), vtx_idx_0, vtx_idx_1, topLFinal, ImVec2(botRFinal.x, topLFinal.y), col1, col2);
-		ShadeVertsLinearColorGradientSetAlpha(ImGui::GetWindowDrawList(), vtx_idx_1, vtx_idx_2, topLFinal, ImVec2(topLFinal.x, botRFinal.y), col1, col2);
+		if (final_drawList == nullptr)
+			final_drawList = ImGui::GetWindowDrawList();
+
+		const int vtx_idx_0 = final_drawList->VtxBuffer.Size;
+		final_drawList->AddRectFilled(topLFinal, botRFinal, ImColor(1, 1, 1, 1), finalBorderRadius, flags);
+		const int vtx_idx_1 = final_drawList->VtxBuffer.Size;
+		final_drawList->AddRectFilled(topLFinal, botRFinal, ImColor(1, 1, 1, 1), finalBorderRadius, flags);
+		const int vtx_idx_2 = final_drawList->VtxBuffer.Size;
+
+		ShadeVertsLinearColorGradientSetAlpha(final_drawList, vtx_idx_0, vtx_idx_1, topLFinal, ImVec2(botRFinal.x, topLFinal.y), col1, col2);
+		ShadeVertsLinearColorGradientSetAlpha(final_drawList, vtx_idx_1, vtx_idx_2, topLFinal, ImVec2(topLFinal.x, botRFinal.y), col1, col2);
 	}
 }
 
@@ -243,10 +282,11 @@ void ImGUIElement::RenderBoxShadow()
 	else
 		draw_list = ImGui::GetBackgroundDrawList();
 
-	draw_list->AddRectFilled(ImVec2(lastPosPlusOffset.x, lastPosPlusOffset.y),
+	draw_list->AddShadowRect(ImVec2(lastPosPlusOffset.x, lastPosPlusOffset.y),
 		ImVec2(lastPosPlusSize.x, lastPosPlusSize.y),
 		ImColor(boxShadow->col.r, boxShadow->col.g, boxShadow->col.b, boxShadow->col.a),
-		borderRadius);
+		boxShadow->blur, ImVec2(0, 0),
+		ImDrawFlags_None, borderRadius);
 }
 
 ImGUIEBoxShadow* ImGUIElement::AddBoxShadow(Color shadowCol, Vector2 offset)
@@ -256,6 +296,18 @@ ImGUIEBoxShadow* ImGUIElement::AddBoxShadow(Color shadowCol, Vector2 offset)
 
 	boxShadow->col = shadowCol;
 	boxShadow->offset = offset;
+
+	return boxShadow;
+}
+
+ImGUIEBoxShadow* ImGUIElement::AddBoxShadow(Color shadowCol, Vector2 offset, float blur)
+{
+	if (boxShadow == nullptr)
+		boxShadow = new ImGUIEBoxShadow();
+
+	boxShadow->col = shadowCol;
+	boxShadow->offset = offset;
+	boxShadow->blur = blur;
 
 	return boxShadow;
 }
@@ -450,7 +502,9 @@ void ImGUIElement::OnUpdate()
 			}
 		}
 
-		if (UITag == "")
+		if (UITag == "" && guiType == GUIType::Window)
+			textFinal = text + "###" + std::to_string(scriptId);
+		else if (UITag == "")
 			textFinal = text;
 		else
 			textFinal = text + "###" + UITag;
@@ -474,6 +528,12 @@ void ImGUIElement::OnUpdate()
 		case GUIType::Window:
 			if (screenSize.x != -1 || screenSize.y != -1)
 				ScaleWithScreenResolution(screenSize);
+
+			if (size.x < 1)
+				size.x = 1;
+			
+			if (size.y < 1)
+				size.y = 1;
 
 			if (isColored)
 			{
@@ -569,7 +629,13 @@ void ImGUIElement::OnUpdate()
 
 				if (_requestForceMove)
 				{
-					ImGui::SetNextWindowPos(ImVec2(moveToPosition.x, moveToPosition.y), ImGuiCond_Always);
+					ImVec2 window_next(0, 0);
+
+					if(!isAbsolute && owner != nullptr)
+						if(owner->allElements[0] != this)
+							window_next = ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y + size.y);
+
+					ImGui::SetNextWindowPos(ImVec2(moveToPosition.x + window_next.x, moveToPosition.y + window_next.y), ImGuiCond_Always);
 					_requestForceMove = false;
 				}
 
@@ -579,25 +645,17 @@ void ImGUIElement::OnUpdate()
 					_requestForceScale = false;
 				}
 
-				if (owner == nullptr || isAbsolute)
+				if (owner == nullptr)
 				{
-					if (isAbsolute)
-					{
-						owner->containsWindowsInside = true;
-					}
-
 					if (!enableOpenAndClose)
-					{
 						window = ImGui::Begin(textFinal.c_str(), nullptr, window_flags);
-					}
 					else
-					{
 						window = ImGui::Begin(textFinal.c_str(), &isOpen, window_flags);
-					}
 				}
 				else
 				{
 					window = ImGui::BeginChild(textFinal.c_str(), ImVec2(size.x, size.y), true);
+
 					owner->containsWindowsInside = true;
 				}
 
@@ -609,16 +667,17 @@ void ImGUIElement::OnUpdate()
 						ImGUIElement::_isMouseOnAnyWindow = true;
 
 					ImVec2 window_TopLeft(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y);
-					ImVec2 window_BottomRight(ImGui::GetWindowPos().x + ImGui::GetWindowSize().x, ImGui::GetWindowPos().y + ImGui::GetWindowSize().y);
+					ImVec2 window_BottomRight(ImGui::GetWindowPos().x + size.x, ImGui::GetWindowPos().y + size.y);
 
 					if (owner != nullptr && colorRef != nullptr)
 					{
+						//if(owner->imgui_drawList != nullptr)
 						ImGui::GetWindowDrawList()->AddRectFilled(window_TopLeft, window_BottomRight, ImColor(style.Colors[ImGuiCol_WindowBg]), borderRadius);
 					}
 
 					if (backgroundGradients.size() != 0)
 					{
-						ImGUIElement::RenderGradients(backgroundGradients, window_TopLeft, window_BottomRight);
+						ImGUIElement::RenderGradients(nullptr, backgroundGradients, window_TopLeft, window_BottomRight);
 					}
 
 					if (backgroundImage != nullptr)
@@ -635,7 +694,7 @@ void ImGUIElement::OnUpdate()
 
 							ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)TextureManager::textureGroups[backgroundImage->texGroupId].texture,
 								window_TopLeft,
-								window_BottomRight, uvMin, uvMax);
+								window_BottomRight, uvMin, uvMax, ImColor(colorRef->r, colorRef->g, colorRef->b, colorRef->a));
 						}
 					}
 
@@ -643,19 +702,14 @@ void ImGUIElement::OnUpdate()
 					{
 						allElements[i]->OnUpdate();
 					}
-				}
 
-				lastPosition = Vector2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y);
-				lastSize = Vector2(ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
+					lastPosition = Vector2(window_TopLeft.x, window_TopLeft.y);
+					lastSize = Vector2(size.x, size.y);
 
-				if (owner == nullptr)
-					ImGui::End();
-				else
-					ImGui::EndChild();
-
-				if (isAbsolute)
-				{
-					ImGui::SetCursorScreenPos(ImVec2(ImGui::GetWindowPos().x + padding.x, ImGui::GetWindowPos().y + ImGui::GetFontSize() + padding.y));
+					if (owner == nullptr)
+						ImGui::End();
+					else
+						ImGui::EndChild();
 				}
 			}
 			else

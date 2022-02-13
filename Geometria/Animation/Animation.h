@@ -68,6 +68,9 @@ struct Animation
 		double double_Result = 0;
 		bool usingDouble = false;
 
+		// Void
+		std::function<void()> void_Trigger;
+
 		Easing easingT = Easing::Linear;
 
 		void SetIntEasing();
@@ -135,6 +138,8 @@ struct Animation
 		Animation::Trigger* AddTrigger(int& p, int to, int atFrame, int duration);
 		Animation::Trigger* AddTrigger(float& p, float to, int atFrame, int duration);
 		Animation::Trigger* AddTrigger(double& p, double to, int atFrame, int duration);
+
+		Animation::Trigger* AddTrigger(std::function<void()> theEvent, int atFrame, int duration);
 
 		Animation::Trigger* AddTrigger(int& p, int to, int atFrame, int duration, Animation::Easing easing);
 		Animation::Trigger* AddTrigger(float& p, float to, int atFrame, int duration, Animation::Easing easing);

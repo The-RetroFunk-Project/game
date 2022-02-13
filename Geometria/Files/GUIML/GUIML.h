@@ -28,9 +28,12 @@ struct GUIML
 			windowResize,
 			borderRadius,
 			boxShadowX,
-			boxShadowY;
+			boxShadowY,
+			boxShadowBlur;
 
 		std::vector<std::string> animations;
+
+		bool onHover = false, onClick = false;
 
 		Color
 			color = Color(-1, -1, -1, -1),
@@ -64,13 +67,14 @@ struct GUIML
 
 	static void CSS_ApplyPositionType(ImGUIElement& gui, std::string type);
 
-	static void CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> commands);
+	static void CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> commands, bool playOnStart);
 	static void CSS_Anim_ApplyProperties(Animation::Timeline& t, ImGUIElement& gui, std::pair<std::string, std::string> css, int frame, int duration, Animation::Easing e);
 	static Animation::Easing CSS_Anim_GetEasing(std::string easing);
 
 	static void CSS_Anim_Size(Animation::Timeline& t, ImGUIElement& gui, std::string widthOrHeight, std::string v, int frame, int duration, Animation::Easing e);
 	static void CSS_Anim_Color(Animation::Timeline& t, ImGUIElement& gui, Color col, int frame, int duration, Animation::Easing e);
 	static void CSS_Anim_BackgroundColor(Animation::Timeline& t, ImGUIElement& gui, Color col, int frame, int duration, Animation::Easing e);
+	static void CSS_Anim_Align(Animation::Timeline& t, ImGUIElement& gui, std::string v, int frame, int duration, Animation::Easing e);
 
 	static std::vector<std::pair<Color, float>> TextToGradient(std::string content);
 

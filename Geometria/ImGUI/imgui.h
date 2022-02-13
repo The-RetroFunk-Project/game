@@ -2365,7 +2365,8 @@ enum ImDrawFlags_
     ImDrawFlags_RoundCornersRight           = ImDrawFlags_RoundCornersBottomRight | ImDrawFlags_RoundCornersTopRight,
     ImDrawFlags_RoundCornersAll             = ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersTopRight | ImDrawFlags_RoundCornersBottomLeft | ImDrawFlags_RoundCornersBottomRight,
     ImDrawFlags_RoundCornersDefault_        = ImDrawFlags_RoundCornersAll, // Default to ALL corners if none of the _RoundCornersXX flags are specified.
-    ImDrawFlags_RoundCornersMask_           = ImDrawFlags_RoundCornersAll | ImDrawFlags_RoundCornersNone
+    ImDrawFlags_RoundCornersMask_           = ImDrawFlags_RoundCornersAll | ImDrawFlags_RoundCornersNone,
+    ImDrawFlags_ShadowCutOutShapeBackground = 1 << 9
 };
 
 // Flags for ImDrawList instance. Those are set automatically by ImGui:: functions from ImGuiIO settings, and generally not manipulated directly.
@@ -2466,6 +2467,12 @@ struct ImDrawList
     IMGUI_API void  PathBezierQuadraticCurveTo(const ImVec2& p2, const ImVec2& p3, int num_segments = 0);               // Quadratic Bezier (3 control points)
     IMGUI_API void  PathRect(const ImVec2& rect_min, const ImVec2& rect_max, float rounding = 0.0f, ImDrawFlags flags = 0);
 
+    #define IMGUI_HAS_SHADOWS 1
+    IMGUI_API void  AddShadowRect(const ImVec2& obj_min, const ImVec2& obj_max, ImU32 shadow_col, float shadow_thickness, const ImVec2& shadow_offset, ImDrawFlags flags = 0, float obj_rounding = 0.0f);
+    IMGUI_API void  AddShadowCircle(const ImVec2& obj_center, float obj_radius, ImU32 shadow_col, float shadow_thickness, const ImVec2& shadow_offset, ImDrawFlags flags = 0, int obj_num_segments = 12);
+    IMGUI_API void  AddShadowConvexPoly(const ImVec2* points, int points_count, ImU32 shadow_col, float shadow_thickness, const ImVec2& shadow_offset, ImDrawFlags flags = 0);
+    IMGUI_API void  AddShadowNGon(const ImVec2& obj_center, float obj_radius, ImU32 shadow_col, float shadow_thickness, const ImVec2& shadow_offset, ImDrawFlags flags, int obj_num_segments);
+
     // Advanced
     IMGUI_API void  AddCallback(ImDrawCallback callback, void* callback_data);  // Your rendering function must check for 'UserCallback' in ImDrawCmd and call the function instead of rendering triangles.
     IMGUI_API void  AddDrawCmd();                                               // This is useful if you need to forcefully create a new draw call (to allow for dependent rendering / blending). Otherwise primitives are merged into the same draw-call as much as possible
@@ -2535,6 +2542,24 @@ struct ImDrawData
 //-----------------------------------------------------------------------------
 // [SECTION] Font API (ImFontConfig, ImFontGlyph, ImFontAtlasFlags, ImFontAtlas, ImFontGlyphRangesBuilder, ImFont)
 //-----------------------------------------------------------------------------
+
+// [Internal] Shadow texture baking config
+struct ImFontAtlasShadowTexConfig
+{
+    int     TexCornerSize;          // Size of the corner areas.
+    int     TexEdgeSize;            // Size of the edge areas (and by extension the center). Changing this is normally unnecessary.
+    float   TexFalloffPower;        // The power factor for the shadow falloff curve.
+    float   TexDistanceFieldOffset; // How much to offset the distance field by (allows over/under-shadowing, potentially useful for accommodating rounded corners on the "casting" shape).
+    bool    TexBlur;                // Do we want to Gaussian blur the shadow texture?
+
+    inline ImFontAtlasShadowTexConfig() { memset(this, 0, sizeof(*this)); }
+    IMGUI_API void SetupDefaults();
+    int     GetRectTexPadding() const { return 2; }                                                   // Number of pixels of padding to add to the rectangular texture to avoid sampling artifacts at the edges.
+    int     CalcRectTexSize() const { return TexCornerSize + TexEdgeSize + GetRectTexPadding(); }   // The size of the texture area required for the actual 2x2 rectangle shadow texture (after the redundant corners have been removed). Padding is required here to avoid sampling artifacts at the edge adjoining the removed corners.    int     CalcConvexTexWidth() const;                                                                // The width of the texture area required for the convex shape shadow texture.
+    int     GetConvexTexPadding() const { return 8; }                                                   // Number of pixels of padding to add to the convex shape texture to avoid sampling artifacts at the edges. This also acts as padding for the expanded corner triangles.
+    int     CalcConvexTexWidth() const;                                                                 // The width of the texture area required for the convex shape shadow texture.
+    int     CalcConvexTexHeight() const;                                                                // The height of the texture area required for the convex shape shadow texture.
+};
 
 struct ImFontConfig
 {
@@ -2724,6 +2749,11 @@ struct ImFontAtlas
     int                         PackIdMouseCursors; // Custom texture rectangle ID for white pixel and mouse cursors
     int                         PackIdLines;        // Custom texture rectangle ID for baked anti-aliased lines
 
+    // [Internal] Shadow data
+    int                         ShadowRectIds[2];   // IDs of rect for shadow textures
+    ImVec4                      ShadowRectUvs[10];  // UV coordinates for shadow textures, 9 for the rectangle shadows and the final entry for the convex shape shadows
+    ImFontAtlasShadowTexConfig  ShadowTexConfig;    // Shadow texture baking config
+
 #ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
     typedef ImFontAtlasCustomRect    CustomRect;         // OBSOLETED in 1.72+
     //typedef ImFontGlyphRangesBuilder GlyphRangesBuilder; // OBSOLETED in 1.67+
@@ -2782,6 +2812,8 @@ struct ImFont
     IMGUI_API void              SetGlyphVisible(ImWchar c, bool visible);
     IMGUI_API bool              IsGlyphRangeUnused(unsigned int c_begin, unsigned int c_last);
 };
+
+
 
 //-----------------------------------------------------------------------------
 // [SECTION] Viewports

@@ -1,5 +1,4 @@
 #version 130
-#extension GL_ARB_explicit_attrib_location : require
 
 in vec4 vs_color;
 in vec2 vs_uv;

@@ -12,7 +12,7 @@ struct AudioSource : public ScriptBehaviour
 {
 	AllowCloning(AudioSource);
 
-	std::string audioFile = "Game/Audio/Songs/StereoMadness.mp3";
+	std::string audioFile = "Resources/StereoMadness.mp3";
 	bool isPlaying = false;
 
 	void Play();

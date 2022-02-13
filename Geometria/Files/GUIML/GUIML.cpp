@@ -1,6 +1,7 @@
 #include "GUIML.h"
 #include "Files\Files.h"
 #include "String\StringAPI.h"
+#include "Graphics/Cores/MainAPI/Graphics.h"
 
 std::vector<GUIML::GUIMLCSSStyle> GUIML::_currentCSSStyles;
 std::vector<GUIML::GUIMLCSSFont> GUIML::_currentCSSFonts;
@@ -63,7 +64,7 @@ Color GUIML::RGBToCol(std::string text)
 ImGUIElement* GUIML::NewGUIML(std::string url, std::string css)
 {
 	pugi::xml_document doc;
-	pugi::xml_parse_result result = doc.load_file(url.c_str());
+	pugi::xml_parse_result doc_result = doc.load_file(url.c_str());
 
 	_currentCSSStyles.clear();
 	std::vector<GUIML::GUIMLCSSStyle>().swap(_currentCSSStyles);
@@ -79,6 +80,9 @@ ImGUIElement* GUIML::NewGUIML(std::string url, std::string css)
 	{
 		sameLine = i.find("|") != std::string::npos;
 
+		std::string checkIfLineIsEmpty = StringAPI::RemoveAll(i, "\n");
+		checkIfLineIsEmpty = StringAPI::RemoveAll(checkIfLineIsEmpty, "\t");
+
 		if (i.find(":") != std::string::npos && i.find(";") != std::string::npos)
 		{
 			std::string getValue = StringAPI::GetSubstringBetween(i, ": ", ";");
@@ -87,9 +91,24 @@ ImGUIElement* GUIML::NewGUIML(std::string url, std::string css)
 			i = result;
 		}
 
-		if (!sameLine)
+		if (checkIfLineIsEmpty != "")
 		{
-			i += "\n";
+			if (!sameLine)
+			{
+				if (i.find(": ") == std::string::npos || i.find(";") == std::string::npos)
+				{
+					i = StringAPI::RemoveAll(i, "\t");
+					i = StringAPI::ReplaceAll(i, " ", "?");
+				}
+				i += "\n";
+			}
+			else
+			{
+				i = StringAPI::ReplaceAll(i, " ", "?");
+				i = StringAPI::ReplaceAll(i, ":?", ": ");
+				i = StringAPI::RemoveAll(i, "\n");
+				i = StringAPI::RemoveAll(i, "\t");
+			}
 			cssResult += i;
 		}
 	}
@@ -201,6 +220,9 @@ ImGUIElement* GUIML::NewGUIML(std::string url, std::string css)
 				else if (pair.first == "box-shadow-y")
 					addClass.boxShadowY = pair.second.Text;
 
+				else if (pair.first == "box-shadow-blur")
+					addClass.boxShadowBlur = pair.second.Text;
+
 				// Animation
 				else if (pair.first == "animation")
 				{
@@ -237,7 +259,7 @@ ImGUIElement* GUIML::NewGUIML(std::string url, std::string css)
 		}
 	}
 
-	if (result)
+	if (doc_result)
 	{
 		return ReadGUIMLNode(doc, nullptr);
 	}
@@ -405,17 +427,24 @@ void GUIML::ApplyCSS(ImGUIElement& gui, std::string c)
 		if (css.windowResize != "")
 			gui.EnableResize = TextToBool(css.windowResize);
 
-		float bSX = 0, bSY = 0;
+		float bSX = 0, bSY = 0, bSBlur = 0;
 		if (css.boxShadowX != "")
 			bSX = PixelsToFloat(css.boxShadowX);
 		if (css.boxShadowY != "")
 			bSY = PixelsToFloat(css.boxShadowY);
+		if (css.boxShadowBlur != "")
+			bSBlur = PixelsToFloat(css.boxShadowBlur);
 
 		if (css.boxShadowColor != Color(-1, -1, -1, -1))
-			gui.AddBoxShadow(css.boxShadowColor, Vector2(bSX, bSY));
+			gui.AddBoxShadow(css.boxShadowColor, Vector2(bSX, bSY), bSBlur);
 
 		if (css.animations.size() != 0)
-			CSS_ApplyAnimation(gui, css.animations);
+		{
+			if(!css.onHover && !css.onClick)
+				CSS_ApplyAnimation(gui, css.animations, true);
+			else
+				CSS_ApplyAnimation(gui, css.animations, false);
+		}
 	}
 }
 
@@ -570,7 +599,7 @@ void GUIML::CSS_ApplyPositionType(ImGUIElement& gui, std::string type)
 		gui.itemPos = ImGUIElement::ItemPosition::Absolute;
 }
 
-void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> commands)
+void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> commands, bool playOnStart)
 {
 	Animation::Timeline* newT = nullptr;
 	int frame = 0, duration = 0;
@@ -578,18 +607,18 @@ void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> comma
 
 	for (auto i : commands)
 	{
-		if (i.find("Start") != std::string::npos)
+		if (i.find("begin") != std::string::npos)
 		{
-			std::string frString = StringAPI::GetSubstringBetween(i, "Start(", ")");
+			std::string frString = StringAPI::GetSubstringBetween(i, "begin(", ")");
 			int framerate = std::stoi(frString);
 
 			newT = Animation::New(framerate);
 
 			std::cout << "Animation Summoned!" << '\n';
 		}
-		else if (i.find("NewFrame") != std::string::npos)
+		else if (i.find("new-frame") != std::string::npos)
 		{
-			std::string get = StringAPI::GetSubstringBetween(i, "NewFrame(", ")");
+			std::string get = StringAPI::GetSubstringBetween(i, "new-frame(", ")");
 
 			// Get Frame, Duration and Easing
 			std::vector<std::string> values = StringAPI::SplitIntoVector(get, ",");
@@ -615,17 +644,21 @@ void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> comma
 					duration = std::stoi(values[1]);
 				}
 
-				if (values.size() == 3)
+				if (values.size() > 2)
 				{
 					easing = values[2];
+				}
+				else
+				{
+					std::cout << "No Easing Value! Default to Linear!" << "\n";
 				}
 			}
 
 			std::cout << "New Frame Summoned!" << '\n';
 		}
-		else if (i.find("Add") != std::string::npos)
+		else if (i.find("add-value") != std::string::npos)
 		{
-			std::string get = StringAPI::GetSubstringBetween(i, "Add(", ")");
+			std::string get = StringAPI::GetSubstringBetween(i, "add-value(", ")");
 			std::vector<std::string> v = StringAPI::SplitIntoVector(get, " = ");
 			std::pair<std::string, std::string> css;
 			if (v.size() == 2)
@@ -644,24 +677,39 @@ void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> comma
 		}
 	}
 
-	newT->Play();
+	if(playOnStart)
+		newT->Play();
 }
 
 void GUIML::CSS_Anim_ApplyProperties(Animation::Timeline& t, ImGUIElement& gui, std::pair<std::string, std::string> css, int frame, int duration, Animation::Easing e)
 {
+	css.second = StringAPI::RemoveAll(css.second, "= ");
+
 	if (css.first == "width")
 		CSS_Anim_Size(t, gui, "width", css.second, frame, duration, e);
 	else if (css.first == "height")
 		CSS_Anim_Size(t, gui, "height", css.second, frame, duration, e);
 
 	else if (css.first == "color" || css.first == "colour")
+	{
+		css.second = StringAPI::ReplaceAll(css.second, "[", "(");
+		css.second = StringAPI::ReplaceAll(css.second, "]", ")");
 		CSS_Anim_Color(t, gui, RGBToCol(css.second), frame, duration, e);
+	}
 	else if (css.first == "background-color" || css.first == "background-colour")
+	{
+		css.second = StringAPI::ReplaceAll(css.second, "[", "(");
+		css.second = StringAPI::ReplaceAll(css.second, "]", ")");
 		CSS_Anim_BackgroundColor(t, gui, RGBToCol(css.second), frame, duration, e);
+	}
+	else if (css.first == "align")
+		CSS_Anim_Align(t, gui, css.second, frame, duration, e);
 }
 
 Animation::Easing GUIML::CSS_Anim_GetEasing(std::string easing)
 {
+	easing = StringAPI::RemoveAll(easing, " ");
+
 	if (easing == "Linear")
 		return Animation::Easing::Linear;
 
@@ -747,7 +795,10 @@ void GUIML::CSS_Anim_Size(Animation::Timeline& t, ImGUIElement& gui, std::string
 			v = StringAPI::RemoveAll(v, "%");
 
 			float size = std::stof(v);
-			
+
+			if (frame - 1 > 0)
+				t.AddTrigger([&] { gui.SetCurrentSizeToScreenSize(true, false); }, frame - 1, 0);
+
 			t.AddTrigger(gui.screenSize.x, size, frame, duration, e);
 		}
 	}
@@ -759,12 +810,15 @@ void GUIML::CSS_Anim_Size(Animation::Timeline& t, ImGUIElement& gui, std::string
 
 			t.AddTrigger(gui.size.y, pixels, frame, duration, e);
 		}
-		else if (v.find("vw") != std::string::npos || v.find("%") != std::string::npos)
+		else if (v.find("vh") != std::string::npos || v.find("%") != std::string::npos)
 		{
-			v = StringAPI::RemoveAll(v, "vw");
+			v = StringAPI::RemoveAll(v, "vh");
 			v = StringAPI::RemoveAll(v, "%");
 
 			float size = std::stof(v);
+
+			if(frame - 1 > 0)
+				t.AddTrigger([&] { gui.SetCurrentSizeToScreenSize(false, true); }, frame - 1, 0);
 
 			t.AddTrigger(gui.screenSize.y, size, frame, duration, e);
 		}
@@ -801,6 +855,23 @@ void GUIML::CSS_Anim_BackgroundColor(Animation::Timeline& t, ImGUIElement& gui, 
 		t.AddTrigger(gui.colorRef->b, col.b, frame, duration, e);
 		t.AddTrigger(gui.colorRef->a, col.a, frame, duration, e);
 	}
+}
+
+void GUIML::CSS_Anim_Align(Animation::Timeline& t, ImGUIElement& gui, std::string v, int frame, int duration, Animation::Easing e)
+{
+	v = StringAPI::RemoveAll(v, "%");
+	std::vector<std::string> alignT = StringAPI::SplitIntoVector(v, " ");
+	Vector2 align = Vector2(std::stof(alignT[0]), std::stof(alignT[1]));
+	align.x /= 100.0f;
+	align.y /= 100.0f;
+
+	std::cout << "Align Value: " << align.x << " " << align.y << std::endl;
+
+	if (frame - 1 > 0)
+		t.AddTrigger([&] { gui.ForceAlignToCustom(); }, frame - 1, 1);
+
+	t.AddTrigger(gui.alignPivot.x, align.x, frame, duration, e);
+	t.AddTrigger(gui.alignPivot.y, align.y, frame, duration, e);
 }
 
 std::vector<std::pair<Color, float>> GUIML::TextToGradient(std::string content)

@@ -1,5 +1,11 @@
 <guiml type="App" class="Main">
 	<div class="Center">
-		<p class="center-bold">Welcome to this Welcome Screen! :DDDDDD</p>
+	</div>
+	<div class="Logo">
+	</div>
+	<div class="Some-Line">
+	</div>
+	<div class="Dialogue-Box">
+		<p class="center-bold">Loading...</p>
 	</div>
 </guiml>

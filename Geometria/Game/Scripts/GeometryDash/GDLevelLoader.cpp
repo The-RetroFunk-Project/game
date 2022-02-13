@@ -28,6 +28,8 @@ void GDLevelLoader::OnStart()
 	//std::cout << Files::GetDirectoryOf("Game/Textures/Blocks/blocks.gtxp") << std::endl;
 
 	LoadVerifier();
+
+	//SetupScene();
 }
 
 void GDLevelLoader::ReadLevel(std::string rawData)
@@ -236,27 +238,24 @@ void CanICount()
 ImGUIElement* win = nullptr;
 void GDLevelLoader::LoadVerifier()
 {
-	if (!Files::DirectoryExists("Game/Textures/Blocks"))
-	{
-		DrawCall* VerifyUI = SceneManager().MainScene().CreateDrawCall();
-		VerifyUI->sort = DrawCall::Sorting::AtStartup;
-		VerifyUI->type = DrawCall::Type::UI;
-		VerifyUI->Close();
+	DrawCall* VerifyUI = SceneManager().MainScene().CreateDrawCall();
+	VerifyUI->sort = DrawCall::Sorting::AtStartup;
+	VerifyUI->type = DrawCall::Type::UI;
+	VerifyUI->Close();
 
-		win = GUIML::NewGUIML("Game/UI/FirstTime.guiml", "Game/UI/FirstTime.css");
+	win = GUIML::NewGUIML("Game/UI/FirstTime.guiml", "Game/UI/FirstTime.css");
 
-		TextureManager::UploadToGPU();
+	TextureManager::UploadToGPU();
 
-		RendererCore::AddImGUIElement(*win, VerifyUI->Target());
-	}
+	RendererCore::AddImGUIElement(*win, VerifyUI->Target());
 
-	Animation::Timeline* yo = Animation::New(80);
+	/*Animation::Timeline* yo = Animation::New(80);
 	yo->AddTrigger(win->screenSize.x, 30.0f, yo->InSeconds(0.2f), yo->InSeconds(1.0f), Animation::Easing::BounceOut);
 	yo->AddTrigger(win->screenSize.y, 50.0f, yo->InSeconds(0.2f), yo->InSeconds(1.0f), Animation::Easing::BounceOut);
 	yo->AddTrigger(win->screenSize.x, 100.0f, yo->InSeconds(1.5f), yo->InSeconds(1.0f), Animation::Easing::BounceOut);
 	yo->AddTrigger(win->screenSize.y, 100.0f, yo->InSeconds(1.5f), yo->InSeconds(1.0f), Animation::Easing::BounceOut);
 	yo->AddTrigger(win->borderRadius, 0, yo->InSeconds(1.5f), yo->InSeconds(1.0f), Animation::Easing::Sinusoidal);
-	yo->Play();
+	yo->Play();*/
 }
 
 void GDLevelLoader::OnUpdate()

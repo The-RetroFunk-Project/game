@@ -35,6 +35,7 @@ struct ImGUIEBoxShadow
 {
 	Color col;
 	Vector2 offset;
+	float blur = 0;
 };
 
 class ImGUIElement : public ScriptBehaviour
@@ -163,11 +164,13 @@ public:
 	bool _lastOpenState = false;
 	bool enableOpenAndClose = false;
 	bool isColored = false;
-	Vector2 moveToPosition, scaleTo;
+	Vector2 moveToPosition = Vector2(-1, -1) , scaleTo;
 	
 	void Move(Vector2 position);
 	void Scale(Vector2 scale);
 	void ScaleWithScreenResolution(Vector2 percentageScale);
+
+	void SetCurrentSizeToScreenSize(bool setX, bool setY);
 
 	bool _requestForceMove = false, _requestForceScale = false;
 
@@ -179,6 +182,8 @@ public:
 
 	Vector2 size, screenSize = Vector2(-1, -1);
 	Vector2 lastPosition = Vector2(-1, -1), lastSize = Vector2(-1, -1);
+
+	ImDrawList* imgui_drawList = nullptr;
 
 	struct
 	{
@@ -208,6 +213,8 @@ public:
 
 	Vector2 alignPivot = Vector2(-1, -1);
 	void SetAlignPivot(Vector2 a);
+
+	void ForceAlignToCustom();
 
 	void OpenWithMouseButton(int input);
 
@@ -264,12 +271,13 @@ public:
 	void AddBackgroundGradient(std::vector<std::pair<Color, float>> bg);
 	void RemoveBackgroundGradient();
 
-	void RenderGradients(std::vector<std::pair<Color, float>>& b, ImVec2 topL, ImVec2 botR);
+	void RenderGradients(ImDrawList* drawList, std::vector<std::pair<Color, float>>& b, ImVec2 topL, ImVec2 botR);
 	void RenderBoxShadow();
 
 	ImGUIEBoxShadow* boxShadow = nullptr;
 
 	ImGUIEBoxShadow* AddBoxShadow(Color shadowCol, Vector2 offset);
+	ImGUIEBoxShadow* AddBoxShadow(Color shadowCol, Vector2 offset, float blur);
 	ImGUIEBoxShadow* RemoveBoxShadow();
 
 	Animation::Timeline* onHoverAnim = nullptr,

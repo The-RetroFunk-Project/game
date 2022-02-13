@@ -17,6 +17,20 @@ Animation::Trigger* Animation::Timeline::AddTrigger(double& p, double to, int at
 	return AddTrigger(p, to, atFrame, duration, Easing::Linear);
 }
 
+Animation::Trigger* Animation::Timeline::AddTrigger(std::function<void()> theEvent, int atFrame, int duration)
+{
+	Animation::Trigger* newT = new Animation::Trigger();
+	newT->void_Trigger = theEvent;
+	newT->frame = atFrame;
+	newT->t_Duration = duration;
+
+	newT->owner = this;
+	allTriggers.push_back(newT);
+	ChangeEndOfTimeline(newT);
+
+	return newT;
+}
+
 Animation::Trigger* Animation::Timeline::AddTrigger(int& p, int to, int atFrame, int duration, Animation::Easing easing)
 {
 	Animation::Trigger* newT = new Animation::Trigger();
@@ -163,6 +177,11 @@ void Animation::Trigger::Play()
 
 		if (double_Tween.progress() >= 1)
 			Finished();
+	}
+	else
+	{
+		void_Trigger();
+		Finished();
 	}
 }
 
