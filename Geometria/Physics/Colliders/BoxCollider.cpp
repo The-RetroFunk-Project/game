@@ -51,9 +51,13 @@ void BoxCollider::SetScale(Vector3 size)
 
 	if (boxDynamic != nullptr)
 	{
-		boxDynamic->detachShape(*boxShape);
-		boxShape->release();
-		boxShape = nullptr;
+		if (boxShape != nullptr)
+		{
+			boxDynamic->detachShape(*boxShape);
+			boxShape->release();
+			boxShape = nullptr;
+		}
+
 		boxShape = PhysicsManager::gPhysics->createShape(physx::PxBoxGeometry((GetTransform().scale.x * size.x) / 2,
 			(GetTransform().scale.y * size.y) / 2,
 			(GetTransform().scale.z * size.z) / 2),
@@ -63,9 +67,13 @@ void BoxCollider::SetScale(Vector3 size)
 	}
 	else if (boxStatic != nullptr)
 	{
-		boxStatic->detachShape(*boxShape);
-		boxShape->release();
-		boxShape = nullptr;
+		if (boxShape != nullptr)
+		{
+			boxStatic->detachShape(*boxShape);
+			boxShape->release();
+			boxShape = nullptr;
+		}
+
 		boxShape = PhysicsManager::gPhysics->createShape(physx::PxBoxGeometry((GetTransform().scale.x * size.x) / 2,
 			(GetTransform().scale.y * size.y) / 2,
 			(GetTransform().scale.z * size.z) / 2),

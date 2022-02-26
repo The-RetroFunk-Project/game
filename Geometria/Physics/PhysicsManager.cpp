@@ -105,6 +105,10 @@ physx::PxRigidStatic* PhysicsManager::CreateStaticBox(BoxCollider& collider, Vec
 
 	PhysicsManager::allStatics.push_back(boxStatic);
 
+	int size = PhysicsManager::allStatics.size() - 1;
+	if (!preUpdate && Application::_engineState == Application::Game)
+		gScene->addActor(*allStatics[size]);
+
 	return boxStatic;
 }
 
@@ -118,6 +122,10 @@ physx::PxRigidDynamic* PhysicsManager::CreateDynamicBox(BoxCollider& collider, V
 		*boxShape, 0);
 
 	PhysicsManager::allDynamics.push_back(boxDynamic);
+
+	int size = PhysicsManager::allDynamics.size() - 1;
+	if (!preUpdate && Application::_engineState == Application::Game)
+		gScene->addActor(*allDynamics[size]);
 
 	return boxDynamic;
 }

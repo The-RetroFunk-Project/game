@@ -24,6 +24,14 @@ struct BoxCollider : public ScriptBehaviour
 
 	Vector3 size = Vector3(1);
 
+	BoxCollider()
+	{
+	}
+
+	BoxCollider(Vector3 getSize) : size(getSize)
+	{
+	}
+
 	void OnStart();
 	void OnInspector();
 	void OnSave();

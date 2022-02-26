@@ -1,3 +1,5 @@
+#ifndef GUIML_H
+#define GUIML_H
 #include "Graphics/Externals/ImGUIElement.h"
 #include "../XML/pugixml.hpp"
 #include "CSS/CSSParser.h"
@@ -29,11 +31,11 @@ struct GUIML
 			borderRadius,
 			boxShadowX,
 			boxShadowY,
-			boxShadowBlur;
+			boxShadowBlur,
+			autoResize;
 
-		std::vector<std::string> animations;
-
-		bool onHover = false, onClick = false;
+		std::vector<std::string> animations, onHoverAnimations, onHoverUpAnimations;
+		std::vector<std::pair<std::vector<std::string>, std::string>> bcastAnimations;
 
 		Color
 			color = Color(-1, -1, -1, -1),
@@ -50,8 +52,10 @@ struct GUIML
 
 	static Color RGBToCol(std::string text);
 
-	static ImGUIElement* NewGUIML(std::string url, std::string css);
+	static ImGUIElement* NewGUIML(std::string url);
 	static ImGUIElement* ReadGUIMLNode(pugi::xml_node node, ImGUIElement* owner);
+
+	static void ApplyBroadcast(ImGUIElement& gui, pugi::xml_node node);
 
 	static void ApplyCSS(ImGUIElement& gui, std::string c);
 	static void CSS_ApplyResolution(ImGUIElement& gui, std::string v, std::string value);
@@ -67,7 +71,10 @@ struct GUIML
 
 	static void CSS_ApplyPositionType(ImGUIElement& gui, std::string type);
 
+	static void CSS_ApplyAutoResize(ImGUIElement& gui, std::string ar);
+
 	static void CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> commands, bool playOnStart);
+	static void CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> commands, bool playOnStart, std::string type);
 	static void CSS_Anim_ApplyProperties(Animation::Timeline& t, ImGUIElement& gui, std::pair<std::string, std::string> css, int frame, int duration, Animation::Easing e);
 	static Animation::Easing CSS_Anim_GetEasing(std::string easing);
 
@@ -95,3 +102,4 @@ struct GUIML
 		}
 	};
 };
+#endif

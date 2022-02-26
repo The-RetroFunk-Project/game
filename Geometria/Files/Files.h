@@ -1,3 +1,5 @@
+#ifndef FILES_H
+#define FILES_H
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -33,3 +35,4 @@ struct Files
 	static bool DirectoryExists(const char* url);
 	static std::string GetDirectoryOf(const char* file);
 };
+#endif

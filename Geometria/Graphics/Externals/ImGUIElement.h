@@ -171,6 +171,7 @@ public:
 	void ScaleWithScreenResolution(Vector2 percentageScale);
 
 	void SetCurrentSizeToScreenSize(bool setX, bool setY);
+	void SetCurrentPosToAlignPivot();
 
 	bool _requestForceMove = false, _requestForceScale = false;
 
@@ -212,6 +213,7 @@ public:
 	AlignTo ScreenPivot = AlignTo::Nothing;
 
 	Vector2 alignPivot = Vector2(-1, -1);
+	Vector2 localScreenPosition = Vector2(0, 0);
 	void SetAlignPivot(Vector2 a);
 
 	void ForceAlignToCustom();
@@ -231,6 +233,11 @@ public:
 	Color fontColor = Color(-1, -1, -1, -1);
 	int fontSize = 20;
 
+	bool IsColorRefUsedForBackground()
+	{
+		return guiType == Window || guiType == Button || guiType == InputField;
+	}
+
 	bool wrapped = false;
 
 	enum ItemPosition
@@ -240,6 +247,15 @@ public:
 	};
 
 	ItemPosition itemPos = Relative;
+
+	enum AutoResize
+	{
+		Disabled,
+		OnlyWidth,
+		OnlyHeight
+	};
+
+	AutoResize autoResize = AutoResize::Disabled;
 
 	void SetColor(Color col);
 	void SetFontColor(Color col);
@@ -282,6 +298,18 @@ public:
 
 	Animation::Timeline* onHoverAnim = nullptr,
 		*onHoverOutAnim = nullptr;
+
+	std::vector<std::pair<Animation::Timeline*, std::string>> broadcastAnimations;
+
+	void AddBroadcastAnimation(Animation::Timeline* t, std::string s)
+	{
+		broadcastAnimations.push_back(std::make_pair(t, s));
+	}
+
+	void RunBroadcastAnimations();
+
+	int bcastOnClickIndex = -1;
+	void BroadcastOnClick(std::string message);
 
 	bool isHovering = false;
 

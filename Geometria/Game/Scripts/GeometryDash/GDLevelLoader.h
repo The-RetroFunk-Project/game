@@ -30,5 +30,21 @@ struct GDLevelLoader : public ScriptBehaviour
 	std::string username, password;
 
 	void LoadVerifier();
-	void SetupScene();
+	void SetupScene(std::string url, int id);
+
+	void OpenServer(std::string url);
+
+	std::string SetURLPrefixes(std::string getUrl)
+	{
+		std::string url = getUrl;
+
+		if (url == "1.9gdps://")
+			url = "https://absolllute.com/gdps/gdapi";
+		else if (url == "gdpseditor2.2://")
+			url = "https://game.gdpseditor.com/server";
+		else if (url == "geometrydash://")
+			url = "http://boomlings.com";
+
+		return url;
+	}
 };

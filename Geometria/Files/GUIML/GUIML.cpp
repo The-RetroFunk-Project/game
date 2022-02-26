@@ -2,6 +2,8 @@
 #include "Files\Files.h"
 #include "String\StringAPI.h"
 #include "Graphics/Cores/MainAPI/Graphics.h"
+#include <Broadcast\Broadcast.h>
+#include <Web\Web.h>
 
 std::vector<GUIML::GUIMLCSSStyle> GUIML::_currentCSSStyles;
 std::vector<GUIML::GUIMLCSSFont> GUIML::_currentCSSFonts;
@@ -61,200 +63,248 @@ Color GUIML::RGBToCol(std::string text)
 	return Color();
 }
 
-ImGUIElement* GUIML::NewGUIML(std::string url, std::string css)
+ImGUIElement* GUIML::NewGUIML(std::string url)
 {
+	std::string rawGuiml, cssUrl;
+	bool isWeb = false;
+
+	if (StringAPI::StartsWith(url, "http")) { rawGuiml = Web::Get(url.c_str(), false); isWeb = true; }
+	else
+		rawGuiml = Files::Read(url.c_str());
+
 	pugi::xml_document doc;
-	pugi::xml_parse_result doc_result = doc.load_file(url.c_str());
+	pugi::xml_parse_result doc_result = doc.load_string(rawGuiml.c_str());
 
 	_currentCSSStyles.clear();
 	std::vector<GUIML::GUIMLCSSStyle>().swap(_currentCSSStyles);
 
-	std::cout << css << std::endl;
-
-	std::string cssResult;
-	std::vector<std::string> cssLines = Files::ReadAndGetLines(css.c_str());
-
-	bool sameLine = false;
-
-	for (auto i : cssLines)
+	if (rawGuiml.find("<main-style src=") != std::string::npos)
 	{
-		sameLine = i.find("|") != std::string::npos;
+		cssUrl = StringAPI::GetSubstringBetween(rawGuiml, "<main-style src=", "/>");
 
-		std::string checkIfLineIsEmpty = StringAPI::RemoveAll(i, "\n");
-		checkIfLineIsEmpty = StringAPI::RemoveAll(checkIfLineIsEmpty, "\t");
-
-		if (i.find(":") != std::string::npos && i.find(";") != std::string::npos)
-		{
-			std::string getValue = StringAPI::GetSubstringBetween(i, ": ", ";");
-			std::string replacedValue = StringAPI::ReplaceAll(getValue, " ", "?");
-			std::string result = StringAPI::ReplaceAll(i, getValue, replacedValue);
-			i = result;
-		}
-
-		if (checkIfLineIsEmpty != "")
-		{
-			if (!sameLine)
-			{
-				if (i.find(": ") == std::string::npos || i.find(";") == std::string::npos)
-				{
-					i = StringAPI::RemoveAll(i, "\t");
-					i = StringAPI::ReplaceAll(i, " ", "?");
-				}
-				i += "\n";
-			}
-			else
-			{
-				i = StringAPI::ReplaceAll(i, " ", "?");
-				i = StringAPI::ReplaceAll(i, ":?", ": ");
-				i = StringAPI::RemoveAll(i, "\n");
-				i = StringAPI::RemoveAll(i, "\t");
-			}
-			cssResult += i;
-		}
+		cssUrl = StringAPI::RemoveAll(cssUrl, "\" ");
+		cssUrl = StringAPI::RemoveAll(cssUrl, "\"");
 	}
 
-	std::cout << cssResult << std::endl;
-
-	CSSParser prs = CSSParser(cssResult);
-	while (!prs.AtEnd()) 
+	if (cssUrl != "")
 	{
-		CSSToken tok = prs.GetCSSToken();
+		std::string cssResult;
+		std::vector<std::string> cssLines;
 
-		if (tok.Selector.Type == SelectorType::Class)
+		if (isWeb)
 		{
-			GUIML::GUIMLCSSStyle addClass;
-
-			addClass.className = tok.Selector.Subject;
-
-			for (std::pair<string, CSSStyle> pair : tok.Styles)
+			if (!StringAPI::StartsWith(cssUrl, "http"))
 			{
-				pair.second.Text = StringAPI::ReplaceAll(pair.second.Text, "?", " ");
+				std::string newCssUrl = "http";
+				newCssUrl += StringAPI::GetSubstringBetween(url, "http", "/rfp");
+				newCssUrl += "/rfp/";
+				newCssUrl += cssUrl;
 
-				// Resolutions
-				if (pair.first == "width")
-					addClass.width = pair.second.Text;
-				else if (pair.first == "height")
-					addClass.height = pair.second.Text;
-
-				// Max Resolutions
-				else if (pair.first == "max-width")
-					addClass.maxWidth = pair.second.Text;
-				else if (pair.first == "max-height")
-					addClass.maxHeight = pair.second.Text;
-
-				// Min Resolutions
-				else if (pair.first == "min-width")
-					addClass.minWidth = pair.second.Text;
-				else if (pair.first == "min-height")
-					addClass.minHeight = pair.second.Text;
-
-				// Align
-				else if (pair.first == "align")
-					addClass.alignment = pair.second.Text;
-
-				// Font
-				else if (pair.first == "font-family")
-				{
-					if (pair.second.Text.find("\"") != std::string::npos)
-						addClass.fontFamily = StringAPI::RemoveAll(pair.second.Text, "\"");
-				}
-				else if (pair.first == "font-size")
-					addClass.fontSize = pair.second.Text;
-
-				// Color
-				else if (pair.first == "color" || pair.first == "colour")
-					addClass.color = GUIML::RGBToCol(pair.second.Text);
-				else if (pair.first == "background-color" || pair.first == "background-colour")
-				{
-					if (pair.second.Text.find("linear-gradient(") != std::string::npos)
-					{
-						std::string finalC = pair.second.Text;
-						finalC += "!";
-						addClass.backgroundGradient = GUIML::TextToGradient(finalC);
-					}
-					else
-						addClass.backgroundColor = GUIML::RGBToCol(pair.second.Text);
-				}
-
-				// Border Width
-				else if (pair.first == "border-width")
-					addClass.borderWidth = pair.second.Text;
-
-				// Border Radius
-				else if (pair.first == "border-radius")
-					addClass.borderRadius = pair.second.Text;
-
-				// Image
-				else if (pair.first == "background-image")
-					addClass.backgroundImage = StringAPI::RemoveAll(pair.second.Text, "\"");
-
-				// Padding
-				else if (pair.first == "padding-x")
-					addClass.paddingX = pair.second.Text;
-				else if (pair.first == "padding-y")
-					addClass.paddingY = pair.second.Text;
-
-				// Text Wrapping
-				else if (pair.first == "wrapping")
-					addClass.wrapping = pair.second.Text;
-
-				// Position
-				else if (pair.first == "position")
-					addClass.positionType = pair.second.Text;
-
-				// Window Title
-				else if (pair.first == "enable-title")
-					addClass.windowTitle = pair.second.Text;
-
-				// Window Resize
-				else if (pair.first == "enable-resize")
-					addClass.windowResize = pair.second.Text;
-
-				// [---------------EFFECTS---------------]
-				// Box Shadow
-				else if (pair.first == "box-shadow-color" || pair.first == "box-shadow-colour")
-					addClass.boxShadowColor = RGBToCol(pair.second.Text);
-
-				else if (pair.first == "box-shadow-x")
-					addClass.boxShadowX = pair.second.Text;
-				else if (pair.first == "box-shadow-y")
-					addClass.boxShadowY = pair.second.Text;
-
-				else if (pair.first == "box-shadow-blur")
-					addClass.boxShadowBlur = pair.second.Text;
-
-				// Animation
-				else if (pair.first == "animation")
-				{
-					addClass.animations = StringAPI::SplitIntoVector(pair.second.Text, "|");
-				}
+				cssUrl = newCssUrl;
 			}
 
-			_currentCSSStyles.push_back(addClass);
+			std::string webCss = Web::Get(cssUrl.c_str(), false);
+			cssLines = StringAPI::GetLinesFromString(webCss);
 		}
-		else if(tok.Selector.Type == SelectorType::Tag)
+		else
+			cssLines = Files::ReadAndGetLines(cssUrl.c_str());
+
+		bool sameLine = false;
+
+		for (auto i : cssLines)
 		{
-			if (tok.Selector.Subject == "@font-face")
+			sameLine = i.find("|") != std::string::npos;
+
+			std::string checkIfLineIsEmpty = StringAPI::RemoveAll(i, "\n");
+			checkIfLineIsEmpty = StringAPI::RemoveAll(checkIfLineIsEmpty, "\t");
+
+			if (i.find(":") != std::string::npos && i.find(";") != std::string::npos)
 			{
-				GUIML::GUIMLCSSFont addFont;
+				std::string getValue = StringAPI::GetSubstringBetween(i, ": ", ";");
+				std::string replacedValue = StringAPI::ReplaceAll(getValue, " ", "?");
+				std::string result = StringAPI::ReplaceAll(i, getValue, replacedValue);
+				i = result;
+			}
+
+			if (checkIfLineIsEmpty != "")
+			{
+				if (!sameLine)
+				{
+					if (i.find(": ") == std::string::npos || i.find(";") == std::string::npos)
+					{
+						i = StringAPI::RemoveAll(i, "\t");
+						i = StringAPI::ReplaceAll(i, " ", "?");
+					}
+					i += "\n";
+				}
+				else
+				{
+					i = StringAPI::ReplaceAll(i, " ", "?");
+					i = StringAPI::ReplaceAll(i, ":?", ": ");
+					i = StringAPI::RemoveAll(i, "\n");
+					i = StringAPI::RemoveAll(i, "\t");
+				}
+				cssResult += i;
+			}
+		}
+
+		std::cout << cssResult << std::endl;
+
+		CSSParser prs = CSSParser(cssResult);
+		while (!prs.AtEnd())
+		{
+			CSSToken tok = prs.GetCSSToken();
+
+			if (tok.Selector.Type == SelectorType::Class)
+			{
+				GUIML::GUIMLCSSStyle addClass;
+
+				addClass.className = tok.Selector.Subject;
 
 				for (std::pair<string, CSSStyle> pair : tok.Styles)
 				{
 					pair.second.Text = StringAPI::ReplaceAll(pair.second.Text, "?", " ");
 
-					if (pair.first == "font-family")
+					// Resolutions
+					if (pair.first == "width")
+						addClass.width = pair.second.Text;
+					else if (pair.first == "height")
+						addClass.height = pair.second.Text;
+
+					// Max Resolutions
+					else if (pair.first == "max-width")
+						addClass.maxWidth = pair.second.Text;
+					else if (pair.first == "max-height")
+						addClass.maxHeight = pair.second.Text;
+
+					// Min Resolutions
+					else if (pair.first == "min-width")
+						addClass.minWidth = pair.second.Text;
+					else if (pair.first == "min-height")
+						addClass.minHeight = pair.second.Text;
+
+					// Align
+					else if (pair.first == "align")
+						addClass.alignment = pair.second.Text;
+
+					// Font
+					else if (pair.first == "font-family")
 					{
 						if (pair.second.Text.find("\"") != std::string::npos)
-							addFont.name = StringAPI::RemoveAll(pair.second.Text, "\"");
+							addClass.fontFamily = StringAPI::RemoveAll(pair.second.Text, "\"");
 					}
-					else if (pair.first == "src")
+					else if (pair.first == "font-size")
+						addClass.fontSize = pair.second.Text;
+
+					// Color
+					else if (pair.first == "color" || pair.first == "colour")
+						addClass.color = GUIML::RGBToCol(pair.second.Text);
+					else if (pair.first == "background-color" || pair.first == "background-colour")
 					{
-						if (pair.second.Text.find("\"") != std::string::npos)
-							addFont.url = StringAPI::RemoveAll(pair.second.Text, "\"");
+						if (pair.second.Text.find("linear-gradient(") != std::string::npos)
+						{
+							std::string finalC = pair.second.Text;
+							finalC += "!";
+							addClass.backgroundGradient = GUIML::TextToGradient(finalC);
+						}
+						else
+							addClass.backgroundColor = GUIML::RGBToCol(pair.second.Text);
 					}
+
+					// Border Width
+					else if (pair.first == "border-width")
+						addClass.borderWidth = pair.second.Text;
+
+					// Border Radius
+					else if (pair.first == "border-radius")
+						addClass.borderRadius = pair.second.Text;
+
+					// Image
+					else if (pair.first == "background-image")
+						addClass.backgroundImage = StringAPI::RemoveAll(pair.second.Text, "\"");
+
+					// Padding
+					else if (pair.first == "padding-x")
+						addClass.paddingX = pair.second.Text;
+					else if (pair.first == "padding-y")
+						addClass.paddingY = pair.second.Text;
+
+					// Text Wrapping
+					else if (pair.first == "wrapping")
+						addClass.wrapping = pair.second.Text;
+
+					// Position
+					else if (pair.first == "position")
+						addClass.positionType = pair.second.Text;
+
+					// Window Title
+					else if (pair.first == "enable-title")
+						addClass.windowTitle = pair.second.Text;
+
+					// Window Resize
+					else if (pair.first == "enable-resize")
+						addClass.windowResize = pair.second.Text;
+
+					// [---------------EFFECTS---------------]
+					// Box Shadow
+					else if (pair.first == "box-shadow-color" || pair.first == "box-shadow-colour")
+						addClass.boxShadowColor = RGBToCol(pair.second.Text);
+
+					else if (pair.first == "box-shadow-x")
+						addClass.boxShadowX = pair.second.Text;
+					else if (pair.first == "box-shadow-y")
+						addClass.boxShadowY = pair.second.Text;
+
+					else if (pair.first == "box-shadow-blur")
+						addClass.boxShadowBlur = pair.second.Text;
+					// [-------------------------------------]
+
+					// Animation
+					else if (pair.first == "animation")
+						addClass.animations = StringAPI::SplitIntoVector(pair.second.Text, "|");
+					else if (pair.first == "onhover")
+						addClass.onHoverAnimations = StringAPI::SplitIntoVector(pair.second.Text, "|");
+					else if (pair.first == "onhoverup")
+						addClass.onHoverUpAnimations = StringAPI::SplitIntoVector(pair.second.Text, "|");
+					else if (pair.first.find("broadcast[") != std::string::npos)
+					{
+						addClass.bcastAnimations.push_back(
+							std::make_pair(
+								StringAPI::SplitIntoVector(pair.second.Text, "|"),
+								StringAPI::GetSubstringBetween(pair.first, "broadcast[", "]")));
+					}
+
+					// Auto Resize
+					else if (pair.first == "auto-resize")
+						addClass.autoResize = pair.second.Text;
 				}
 
-				_currentCSSFonts.push_back(addFont);
+				_currentCSSStyles.push_back(addClass);
+			}
+			else if (tok.Selector.Type == SelectorType::Tag)
+			{
+				if (tok.Selector.Subject == "@font-face")
+				{
+					GUIML::GUIMLCSSFont addFont;
+
+					for (std::pair<string, CSSStyle> pair : tok.Styles)
+					{
+						pair.second.Text = StringAPI::ReplaceAll(pair.second.Text, "?", " ");
+
+						if (pair.first == "font-family")
+						{
+							if (pair.second.Text.find("\"") != std::string::npos)
+								addFont.name = StringAPI::RemoveAll(pair.second.Text, "\"");
+						}
+						else if (pair.first == "src")
+						{
+							if (pair.second.Text.find("\"") != std::string::npos)
+								addFont.url = StringAPI::RemoveAll(pair.second.Text, "\"");
+						}
+					}
+
+					_currentCSSFonts.push_back(addFont);
+				}
 			}
 		}
 	}
@@ -304,6 +354,7 @@ ImGUIElement* GUIML::ReadGUIMLNode(pugi::xml_node node, ImGUIElement* owner)
 		auto cont = ok.child("cont");
 		auto input = ok.child("input");
 		auto div = ok.child("div");
+		auto button = ok.child("button");
 		if (p)
 		{
 			NodeInfo nodeInfo(p);
@@ -328,6 +379,10 @@ ImGUIElement* GUIML::ReadGUIMLNode(pugi::xml_node node, ImGUIElement* owner)
 			Node->target = &Node->strData;
 			ApplyCSS(*Node, nodeInfo.nodeClass);
 
+			std::string b = input.attribute("broadcast").as_string();
+			if (b == "true")
+				Broadcast::AddImGUIElementToBroadcast(Node, nodeInfo.nodeName);
+
 			for (pugi::xml_node subnode : input)
 				ReadGUIMLNode(subnode, Node);
 		}
@@ -342,10 +397,31 @@ ImGUIElement* GUIML::ReadGUIMLNode(pugi::xml_node node, ImGUIElement* owner)
 			for (pugi::xml_node subnode : div)
 				ReadGUIMLNode(subnode, Node);
 		}
+		else if (button)
+		{
+			NodeInfo nodeInfo(button);
 
+			Node = new ImGUIElement(ImGUIElement::GUIType::Button, *owner, button.text().as_string());
+			Node->target = &Node->strData;
+			ApplyCSS(*Node, nodeInfo.nodeClass);
+			ApplyBroadcast(*Node, button);
+
+			for (pugi::xml_node subnode : button)
+				ReadGUIMLNode(subnode, Node);
+		}
 	}
 
 	return Node;
+}
+
+void GUIML::ApplyBroadcast(ImGUIElement& gui, pugi::xml_node node)
+{
+	std::string onclick = node.attribute("onclick").as_string();
+	
+	if (onclick.find("broadcast(") != std::string::npos)
+	{
+		gui.BroadcastOnClick(StringAPI::GetSubstringBetween(onclick, "broadcast('", "')"));
+	}
 }
 
 void GUIML::ApplyCSS(ImGUIElement& gui, std::string c)
@@ -439,12 +515,20 @@ void GUIML::ApplyCSS(ImGUIElement& gui, std::string c)
 			gui.AddBoxShadow(css.boxShadowColor, Vector2(bSX, bSY), bSBlur);
 
 		if (css.animations.size() != 0)
+			CSS_ApplyAnimation(gui, css.animations, true);
+		if (css.onHoverAnimations.size() != 0)
+			CSS_ApplyAnimation(gui, css.onHoverAnimations, false, "onhover");
+		if (css.onHoverUpAnimations.size() != 0)
+			CSS_ApplyAnimation(gui, css.onHoverUpAnimations, false, "onhoverup");
+
+		for (auto i : css.bcastAnimations)
 		{
-			if(!css.onHover && !css.onClick)
-				CSS_ApplyAnimation(gui, css.animations, true);
-			else
-				CSS_ApplyAnimation(gui, css.animations, false);
+			std::cout << "Applying Broadcast " << i.second << '\n';
+			CSS_ApplyAnimation(gui, i.first, false, i.second);
 		}
+
+		if (css.autoResize != "")
+			CSS_ApplyAutoResize(gui, css.autoResize);
 	}
 }
 
@@ -529,13 +613,23 @@ void GUIML::CSS_ApplyAlignment(ImGUIElement& gui, std::string value)
 	{
 		if (value == "top-left")
 			gui.Alignment = ImGUIElement::AlignTo::TopLeft;
-		else if (value == "top")
-			gui.Alignment = ImGUIElement::AlignTo::Top;
+		else if (value == "top-right")
+			gui.Alignment = ImGUIElement::AlignTo::TopRight;
+		else if (value == "bottom-left")
+			gui.Alignment = ImGUIElement::AlignTo::BottomLeft;
+		else if (value == "bottom-right")
+			gui.Alignment = ImGUIElement::AlignTo::BottomRight;
 
 		else if (value == "left")
 			gui.Alignment = ImGUIElement::AlignTo::Left;
 		else if (value == "center")
 			gui.Alignment = ImGUIElement::AlignTo::Center;
+		else if (value == "right")
+			gui.Alignment = ImGUIElement::AlignTo::Right;
+		else if (value == "top")
+			gui.Alignment = ImGUIElement::AlignTo::Top;
+		else if (value == "bottom")
+			gui.Alignment = ImGUIElement::AlignTo::Bottom;
 	}
 	else
 	{
@@ -599,7 +693,22 @@ void GUIML::CSS_ApplyPositionType(ImGUIElement& gui, std::string type)
 		gui.itemPos = ImGUIElement::ItemPosition::Absolute;
 }
 
+void GUIML::CSS_ApplyAutoResize(ImGUIElement& gui, std::string ar)
+{
+	if (ar == "disabled")
+		gui.autoResize = ImGUIElement::AutoResize::Disabled;
+	else if (ar == "only-width")
+		gui.autoResize = ImGUIElement::AutoResize::OnlyWidth;
+	else if (ar == "only-height")
+		gui.autoResize = ImGUIElement::AutoResize::OnlyHeight;
+}
+
 void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> commands, bool playOnStart)
+{
+	CSS_ApplyAnimation(gui, commands, playOnStart, "");
+}
+
+void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> commands, bool playOnStart, std::string type)
 {
 	Animation::Timeline* newT = nullptr;
 	int frame = 0, duration = 0;
@@ -616,7 +725,7 @@ void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> comma
 
 			std::cout << "Animation Summoned!" << '\n';
 		}
-		else if (i.find("new-frame") != std::string::npos)
+		else if (i.find("new-frame") != std::string::npos && newT != nullptr)
 		{
 			std::string get = StringAPI::GetSubstringBetween(i, "new-frame(", ")");
 
@@ -648,16 +757,23 @@ void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> comma
 				{
 					easing = values[2];
 				}
-				else
+				/*else
 				{
 					std::cout << "No Easing Value! Default to Linear!" << "\n";
-				}
+				}*/
 			}
 
-			std::cout << "New Frame Summoned!" << '\n';
+			//std::cout << "New Frame Summoned!" << '\n';
 		}
 		else if (i.find("add-value") != std::string::npos)
 		{
+			if (newT == nullptr)
+			{
+				newT = Animation::New(70);
+				frame = 0;
+				duration = 1;
+			}
+
 			std::string get = StringAPI::GetSubstringBetween(i, "add-value(", ")");
 			std::vector<std::string> v = StringAPI::SplitIntoVector(get, " = ");
 			std::pair<std::string, std::string> css;
@@ -670,12 +786,43 @@ void GUIML::CSS_ApplyAnimation(ImGUIElement& gui, std::vector<std::string> comma
 
 				CSS_Anim_ApplyProperties(*newT, gui, css, frame, duration, CSS_Anim_GetEasing(easing));
 			}
-			else
+			/*else
 			{
 				std::cout << "Ummmmmm... what?" << '\n';
-			}
+			}*/
 		}
+		else if (i.find("--move") != std::string::npos)
+		{
+			if (newT == nullptr)
+			{
+				newT = Animation::New(70);
+				frame = 0;
+				duration = 1;
+			}
+
+			std::string get = StringAPI::GetSubstringBetween(i, "--move(", ")");
+			std::vector<std::string> v = StringAPI::SplitIntoVector(get, " ");
+
+			if (frame - 1 > 0)
+				newT->AddTrigger([&] { gui.SetCurrentPosToAlignPivot(); }, frame - 1, 1);
+
+			newT->AddTrigger(gui.localScreenPosition.x, std::stof(v[0]) / 100.0f, frame, duration, CSS_Anim_GetEasing(easing));
+			newT->AddTrigger(gui.localScreenPosition.y, std::stof(v[1]) / 100.0f, frame, duration, CSS_Anim_GetEasing(easing));
+		}
+		else if (i.find("--disable()") != std::string::npos)
+			newT->AddTrigger([&] { gui.isEnabled = false; }, frame, 1);
+		else if (i.find("--enable()") != std::string::npos)
+			newT->AddTrigger([&] { gui.isEnabled = true; }, frame, 1);
 	}
+
+	if (type == "onhover")
+		gui.onHoverAnim = newT;
+
+	if (type == "onhoverup")
+		gui.onHoverOutAnim = newT;
+
+	if (type != "onhover" || type != "onhoverup")
+		gui.AddBroadcastAnimation(newT, type);
 
 	if(playOnStart)
 		newT->Play();
@@ -827,7 +974,7 @@ void GUIML::CSS_Anim_Size(Animation::Timeline& t, ImGUIElement& gui, std::string
 
 void GUIML::CSS_Anim_Color(Animation::Timeline& t, ImGUIElement& gui, Color col, int frame, int duration, Animation::Easing e)
 {
-	if (gui.guiType != ImGUIElement::GUIType::Window)
+	if (!gui.IsColorRefUsedForBackground())
 	{
 		if (gui.colorRef != nullptr)
 		{

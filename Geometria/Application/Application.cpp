@@ -77,6 +77,7 @@ void Application::Start()
 
 	RendererCore::Start();
 
-	//Application::SetGame();
 	GameMain::Init();
+
+	Application::SetGame();
 }

@@ -4,6 +4,7 @@
 #include <experimental/filesystem>
 #include "../Cores/MainAPI/Graphics.h"
 #include "../../Input/Input.h"
+#include "Broadcast/Broadcast.h"
 
 bool ImGUIElement::_isMouseOnAnyWindow = false;
 std::vector<ImGUIEFont*> ImGUIElement::allFonts;
@@ -123,6 +124,20 @@ void ImGUIElement::SetCurrentSizeToScreenSize(bool setX, bool setY)
 	}
 }
 
+void ImGUIElement::SetCurrentPosToAlignPivot()
+{
+	if (alignPivot != Vector2(-1, -1))
+	{
+		ForceAlignToCustom();
+
+		if (guiType == Window)
+		{
+			alignPivot = Vector2((ImGui::GetWindowPos().x + (ImGui::GetWindowSize().x / 2.0f)) / Graphics::GetMainWindow().width,
+				(ImGui::GetWindowPos().y + (ImGui::GetWindowSize().y / 2.0f)) / Graphics::GetMainWindow().height);
+		}
+	}
+}
+
 bool ImGUIElement::IsMouseOnAnyWindow()
 {
 	return _isMouseOnAnyWindow;
@@ -154,7 +169,7 @@ void ImGUIElement::SetFontColor(Color col)
 {
 	isColored = true;
 
-	if (guiType == GUIType::Window)
+	if (IsColorRefUsedForBackground())
 		fontColor = col;
 	else
 		colorRef = new Color(col);
@@ -322,6 +337,26 @@ ImGUIEBoxShadow* ImGUIElement::RemoveBoxShadow()
 	return nullptr;
 }
 
+void ImGUIElement::RunBroadcastAnimations()
+{
+	for (auto i : broadcastAnimations)
+	{
+		if (Broadcast::Recieve(i.second))
+		{
+			i.first->Play();
+		}
+	}
+}
+
+void ImGUIElement::BroadcastOnClick(std::string message)
+{
+	if (bcastOnClickIndex != -1)
+		onClickEvents.erase(onClickEvents.begin() + bcastOnClickIndex);
+
+	bcastOnClickIndex = onClickEvents.size();
+	onClickEvents.push_back(std::bind(Broadcast::Send, message));
+}
+
 void ImGUIElement::Delete()
 {
 	onClickEvents.clear();
@@ -453,24 +488,73 @@ void ImGUIElement::OnUpdate()
 			currentWrapping = wrapped;
 		}
 
-		if (guiType != GUIType::Window)
+		switch (Alignment)
 		{
-			switch (Alignment)
-			{
-			case Center:
-				float font_size = ImGui::CalcTextSize(text.c_str()).x;
-				float text_indentation = (ImGui::GetWindowSize().x - font_size) * 0.5f;
-				float min_indentation = 20.0f;
-				if (text_indentation <= min_indentation) {
-					text_indentation = min_indentation;
-				}
-				
-				ImGui::SetCursorPosX(text_indentation);
+		case TopLeft:
+			alignPivot = Vector2(0, 0);
+			break;
+		case Top:
+			alignPivot = Vector2(0.5, 0);
+			break;
+		case TopRight:
+			alignPivot = Vector2(1.0, 0);
+			break;
 
-				if (currentWrapping)
-					ImGui::PushTextWrapPos(ImGui::GetWindowSize().x - text_indentation);
-				break;
+		case Left:
+			alignPivot = Vector2(0, 0.5);
+			break;
+		case Center:
+			alignPivot = Vector2(0.5, 0.5);
+			break;
+		case Right:
+			alignPivot = Vector2(1.0, 0.5);
+			break;
+
+		case BottomLeft:
+			alignPivot = Vector2(0, 1.0);
+			break;
+		case Bottom:
+			alignPivot = Vector2(0.5, 1.0);
+			break;
+		case BottomRight:
+			alignPivot = Vector2(1.0, 1.0);
+		}
+
+		if (guiType != GUIType::Window && alignPivot != Vector2(-1, -1))
+		{
+			float font_size_x = 0;
+
+			if(guiType == GUIType::InputField)
+				font_size_x = ImGui::CalcTextSize(text.c_str()).x + ImGui::CalcItemWidth();
+			else
+				font_size_x = ImGui::CalcTextSize(text.c_str()).x;
+
+			float font_size_y = ImGui::CalcTextSize(text.c_str()).y;
+
+			float item_x, item_y;
+
+			if (guiType != Text)
+			{
+				item_x = (ImGui::GetWindowSize().x - (font_size_x + ImGui::GetStyle().ItemSpacing.x)) * alignPivot.x;
+				item_y = (ImGui::GetWindowSize().y - (font_size_y + ImGui::GetStyle().ItemSpacing.y + 2)) * alignPivot.y;
 			}
+			else
+			{
+				item_x = (ImGui::GetWindowSize().x - font_size_x) * alignPivot.x;
+				item_y = (ImGui::GetWindowSize().y - font_size_y) * alignPivot.y;
+			}
+			/*float min_x = 20.0f;
+			if (item_x <= min_x) {
+				item_x = min_x;
+			}*/
+		
+			ImGui::SetCursorPosX(item_x);
+
+			if (itemPos == Absolute)
+				ImGui::SetCursorPosY(item_y);
+
+			if (currentWrapping)
+				ImGui::PushTextWrapPos(ImGui::GetWindowSize().x - item_x);
 		}
 
 		ImGuiStyle& style = ImGui::GetStyle();
@@ -494,12 +578,17 @@ void ImGUIElement::OnUpdate()
 
 		style.WindowPadding = ImVec2(this->padding.x, this->padding.y);
 
-		if (isColored && guiType != GUIType::Window)
+		if (isColored && !IsColorRefUsedForBackground())
 		{
 			if (colorRef != nullptr)
 			{
 				style.Colors[ImGuiCol_Text] = ImColor(colorRef->r, colorRef->g, colorRef->b, colorRef->a);
 			}
+		}
+		else
+		{
+			if (fontColor != Color(-1, -1, -1, -1))
+				style.Colors[ImGuiCol_Text] = ImColor(fontColor.r, fontColor.g, fontColor.b, fontColor.a);
 		}
 
 		if (UITag == "" && guiType == GUIType::Window)
@@ -522,7 +611,9 @@ void ImGUIElement::OnUpdate()
 				RenderBoxShadow();
 		}
 
+		ImColor buttonCol, buttonHoverCol, backupChildBgColor;
 		float alignW = 0, alignH = 0;
+		bool isHovered = false;
 		switch (guiType)
 		{
 		case GUIType::Window:
@@ -544,55 +635,20 @@ void ImGUIElement::OnUpdate()
 						style.Colors[ImGuiCol_WindowBg] = ImColor(colorRef->r, colorRef->g, colorRef->b, colorRef->a);
 					}
 				}
-
-				if (fontColor != Color(-1, -1, -1, -1))
-				{
-					style.Colors[ImGuiCol_Text] = ImColor(fontColor.r, fontColor.g, fontColor.b, fontColor.a);
-				}
 			}
 
 			if (backgroundImage != nullptr || backgroundGradients.size() != 0)
 				style.Colors[ImGuiCol_WindowBg] = ImColor(0, 0, 0, 0);
 
-			switch (Alignment)
-			{
-			case TopLeft:
-				alignPivot = Vector2(0, 0);
-				break;
-			case Top:
-				alignPivot = Vector2(0.5, 0);
-				break;
-			case TopRight:
-				alignPivot = Vector2(1, 0);
-
-			case Left:
-				alignPivot = Vector2(0, 0.5);
-				break;
-			case Center:
-				alignPivot = Vector2(0.5, 0.5);
-				break;
-			case Right:
-				alignPivot = Vector2(1, 0.5);
-
-			case BottomLeft:
-				alignPivot = Vector2(0, 1);
-				break;
-			case Bottom:
-				alignPivot = Vector2(0.5, 1);
-				break;
-			case BottomRight:
-				alignPivot = Vector2(1, 1);
-			}
-
 			if (owner != nullptr)
 			{
-				alignW = (ImGui::GetWindowPos().x + ((ImGui::GetWindowSize().x - size.x) * alignPivot.x));
-				alignH = (ImGui::GetWindowPos().y + ((ImGui::GetWindowSize().y - size.y) * alignPivot.y));
+				alignW = (ImGui::GetWindowPos().x + ((ImGui::GetWindowSize().x - size.x) * alignPivot.x)) + (localScreenPosition.x * ImGui::GetWindowSize().x);
+				alignH = (ImGui::GetWindowPos().y + ((ImGui::GetWindowSize().y - size.y) * alignPivot.y)) + (localScreenPosition.y * ImGui::GetWindowSize().y);
 			}
 			else
 			{
-				alignW = Graphics::GetMainWindow().width * alignPivot.x - (size.x / 2);
-				alignH = Graphics::GetMainWindow().height * alignPivot.y - (size.y / 2);
+				alignW = Graphics::GetMainWindow().width * alignPivot.x - (size.x / 2) + (localScreenPosition.x * Graphics::GetMainWindow().width);
+				alignH = Graphics::GetMainWindow().height * alignPivot.y - (size.y / 2) + (localScreenPosition.y * Graphics::GetMainWindow().height);
 			}
 
 			if (alignPivot != Vector2(-1, -1))
@@ -641,7 +697,16 @@ void ImGUIElement::OnUpdate()
 
 				if (_requestForceScale)
 				{
-					ImGui::SetNextWindowSize(ImVec2(scaleTo.x, scaleTo.y), ImGuiCond_Always);
+					if (autoResize == Disabled)
+						ImGui::SetNextWindowSize(ImVec2(scaleTo.x, scaleTo.y), ImGuiCond_Always);
+					else
+					{
+						if (autoResize == OnlyWidth)
+							ImGui::SetNextWindowSize(ImVec2(0, scaleTo.y), ImGuiCond_Always);
+						else if(autoResize == OnlyHeight)
+							ImGui::SetNextWindowSize(ImVec2(scaleTo.x, 0), ImGuiCond_Always);
+
+					}
 					_requestForceScale = false;
 				}
 
@@ -654,7 +719,19 @@ void ImGUIElement::OnUpdate()
 				}
 				else
 				{
-					window = ImGui::BeginChild(textFinal.c_str(), ImVec2(size.x, size.y), true);
+					if(autoResize == Disabled)
+						window = ImGui::BeginChild(textFinal.c_str(), ImVec2(size.x, size.y), true);
+					else
+					{
+						if (autoResize == OnlyWidth)
+						{
+							window = ImGui::BeginChild(textFinal.c_str(), ImVec2(0, size.y), true, ImGuiWindowFlags_AlwaysAutoResize);
+						}
+						else if (autoResize == OnlyHeight)
+						{
+							window = ImGui::BeginChild(textFinal.c_str(), ImVec2(size.x, 0), true, ImGuiWindowFlags_AlwaysAutoResize);
+						}
+					}
 
 					owner->containsWindowsInside = true;
 				}
@@ -664,10 +741,16 @@ void ImGUIElement::OnUpdate()
 				if (window)
 				{
 					if (ImGui::IsWindowHovered())
+						isHovered = true;
+
+					if (ImGui::IsWindowHovered())
 						ImGUIElement::_isMouseOnAnyWindow = true;
 
 					ImVec2 window_TopLeft(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y);
 					ImVec2 window_BottomRight(ImGui::GetWindowPos().x + size.x, ImGui::GetWindowPos().y + size.y);
+
+					lastPosition = Vector2(window_TopLeft.x, window_TopLeft.y);
+					lastSize = Vector2(size.x, size.y);
 
 					if (owner != nullptr && colorRef != nullptr)
 					{
@@ -692,9 +775,18 @@ void ImGUIElement::OnUpdate()
 							ImVec2 uvMax(float(backgroundImage->finalRect.x + backgroundImage->finalRect.width) / float(TextureManager::textureGroups[backgroundImage->texGroupId].width),
 								float(backgroundImage->finalRect.y + backgroundImage->finalRect.height) / float(TextureManager::textureGroups[backgroundImage->texGroupId].height));
 
-							ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)TextureManager::textureGroups[backgroundImage->texGroupId].texture,
-								window_TopLeft,
-								window_BottomRight, uvMin, uvMax, ImColor(colorRef->r, colorRef->g, colorRef->b, colorRef->a));
+							if (colorRef == nullptr)
+							{
+								ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)TextureManager::textureGroups[backgroundImage->texGroupId].texture,
+									window_TopLeft,
+									window_BottomRight, uvMin, uvMax);
+							}
+							else
+							{
+								ImGui::GetWindowDrawList()->AddImage((void*)(intptr_t)TextureManager::textureGroups[backgroundImage->texGroupId].texture,
+									window_TopLeft,
+									window_BottomRight, uvMin, uvMax, ImColor(colorRef->r, colorRef->g, colorRef->b, colorRef->a));
+							}
 						}
 					}
 
@@ -702,9 +794,6 @@ void ImGUIElement::OnUpdate()
 					{
 						allElements[i]->OnUpdate();
 					}
-
-					lastPosition = Vector2(window_TopLeft.x, window_TopLeft.y);
-					lastSize = Vector2(size.x, size.y);
 
 					if (owner == nullptr)
 						ImGui::End();
@@ -723,6 +812,10 @@ void ImGUIElement::OnUpdate()
 
 		case GUIType::AppWindow:
 			guiType = Window;
+			itemPos = Absolute;
+			screenSize = Vector2(100, 100);
+			ScaleWithScreenResolution(Vector2(0));
+			Alignment = Center;
 			EnableResize = EnableScrolling = EnableTitle = CanBeMoved = SaveInFile = false;
 			break;
 
@@ -740,13 +833,26 @@ void ImGUIElement::OnUpdate()
 			break;
 
 		case GUIType::Button:
-			if (ImGui::Button(textFinal.c_str(), ImVec2(size.x, size.y)))
+			buttonCol = style.Colors[ImGuiCol_Button];
+			buttonHoverCol = style.Colors[ImGuiCol_ButtonHovered];
+
+			if (colorRef != nullptr)
+				style.Colors[ImGuiCol_Button] = ImColor(colorRef->r, colorRef->g, colorRef->b, colorRef->a);
+
+			if(onHoverAnim != nullptr)
+				if (colorRef != nullptr)
+					style.Colors[ImGuiCol_ButtonHovered] = ImColor(colorRef->r, colorRef->g, colorRef->b, colorRef->a);
+
+			if (ImGui::ButtonEx(textFinal.c_str(), ImVec2(size.x, size.y), ImGuiButtonFlags_FlattenChildren))
 			{
 				for (int i = 0; i < onClickEvents.size(); i++)
 				{
 					onClickEvents[i]();
 				}
 			}
+
+			style.Colors[ImGuiCol_Button] = buttonCol;
+			style.Colors[ImGuiCol_ButtonHovered] = buttonHoverCol;
 			break;
 
 		case GUIType::Menu:
@@ -826,6 +932,11 @@ void ImGUIElement::OnUpdate()
 			break;
 
 		case GUIType::InputField:
+			backupChildBgColor = style.Colors[ImGuiCol_FrameBg];
+
+			if(colorRef != nullptr)
+				style.Colors[ImGuiCol_FrameBg] = ImColor(colorRef->r, colorRef->g, colorRef->b, colorRef->a);
+
 			if (ImGUIElement::InputText(textFinal.c_str(), target, ImGuiInputTextFlags_CallbackResize, InputTextCallback, (void*)target))
 			{
 				for (int i = 0; i < onChangeEvents.size(); i++)
@@ -833,6 +944,8 @@ void ImGUIElement::OnUpdate()
 					onChangeEvents[i]();
 				}
 			}
+
+			style.Colors[ImGuiCol_FrameBg] = backupChildBgColor;
 			break;
 
 		case GUIType::Text:
@@ -956,8 +1069,16 @@ void ImGUIElement::OnUpdate()
 			}
 		}
 
-		if (ImGui::IsItemHovered())
+		RunBroadcastAnimations();
+
+		if (guiType != Window)
+			isHovered = ImGui::IsItemHovered();
+
+		if (isHovered)
 		{
+			if (onHoverOutAnim != nullptr)
+				onHoverOutAnim->Stop();
+
 			if (onHoverAnim != nullptr)
 				if (!onHoverAnim->IsPlaying() && !isHovering)
 					onHoverAnim->Play();
@@ -968,6 +1089,9 @@ void ImGUIElement::OnUpdate()
 		{
 			if (isHovering)
 			{
+				if (onHoverAnim != nullptr)
+					onHoverAnim->Stop();
+
 				if (onHoverOutAnim != nullptr)
 					if (!onHoverOutAnim->IsPlaying())
 						onHoverOutAnim->Play();

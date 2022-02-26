@@ -10,6 +10,8 @@ class DrawCall;
 
 class ImGUIElement;
 
+#ifndef RENDERER_CORE_H
+#define RENDERER_CORE_H
 class RendererCore
 {
 public:
@@ -68,3 +70,4 @@ public:
 
 	static void OpenGL_Render();
 };
+#endif

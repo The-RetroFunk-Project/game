@@ -1,5 +1,7 @@
 #pragma once
 
+#ifndef APPLICATION_H
+#define APPLICATION_H
 class Application
 {
 public:
@@ -24,3 +26,4 @@ public:
 	static void SetGame();
 	static void Start();
 };
+#endif

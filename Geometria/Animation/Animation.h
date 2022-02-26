@@ -164,7 +164,7 @@ struct Animation
 
 		bool HasReachedLimit()
 		{
-			return allTimelines.size() <= timelineLimit;
+			return allTimelines.size() >= timelineLimit;
 		}
 	};
 

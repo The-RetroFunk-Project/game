@@ -195,6 +195,7 @@ Animation::AnimThread* Animation::Create()
 {
 	Animation::AnimThread* newTh = new Animation::AnimThread();
 	newTh->owner = Multithreading::RunUpdateThread([newTh]() { newTh->UpdateLoop(); }, 250);
+	allThreads.push_back(newTh);
 	return newTh;
 }
 

@@ -3,6 +3,7 @@
 #include <iostream>
 #include "../Tools/Tools.h"
 #include "../Files/Scene/SceneFile.h"
+#include "../Application/Application.h"
 
 struct ScriptBehaviour;
 class Hierarchy
@@ -309,11 +310,34 @@ struct ScriptBehaviour
 	T* AddScript()
 	{
 		T* script = new T();
+
+		if (Application::_engineState == Application::State::Game)
+			Hierarchy::_setEditor = false;
+
 		int lastItem = scripts.size();
 		scripts.push_back(script);
 		scripts[lastItem]->owner = this;
+		scripts[lastItem]->hasOwner = true;
+		scripts[lastItem]->StartScript();
 		return script;
 	}
+
+	template <typename T, typename ... Args>
+	T* AddScript(Args ... a)
+	{
+		T* script = new T(a...);
+
+		if (Application::_engineState == Application::State::Game)
+			Hierarchy::_setEditor = false;
+
+		int lastItem = scripts.size();
+		scripts.push_back(script);
+		scripts[lastItem]->owner = this;
+		scripts[lastItem]->hasOwner = true;
+		scripts[lastItem]->StartScript();
+		return script;
+	}
+
 
 	template <typename T>
 	T* GetScript()

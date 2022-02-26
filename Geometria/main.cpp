@@ -297,6 +297,8 @@ int main(int argc, char** argv)
 
         Graphics::Update();
 
+        Broadcast::Update();
+
         firstFrame = false;
     }
 

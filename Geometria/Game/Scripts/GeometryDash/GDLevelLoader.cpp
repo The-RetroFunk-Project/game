@@ -148,17 +148,24 @@ void GDLevelLoader::ReadLevel(std::string rawData)
 
 			if (!noC)
 			{
-				BoxCollider* b = newObj->AddScript<BoxCollider>();
+				bool gotCustomSize = false;
 				for (auto collSize : customCollisionSize)
 				{
 					if (collSize.first == objId)
 					{
-						b->SetScale(collSize.second);
+						BoxCollider* b = newObj->AddScript<BoxCollider>(collSize.second);
+						gotCustomSize = true;
+						break;
 					}
 				}
+
+				if(!gotCustomSize)
+					newObj->AddScript<BoxCollider>();
 			}
 
-			newObj->SetTexture(*GDTextures[objId]);
+			if(objId < GDTextures.size())
+				newObj->SetTexture(*GDTextures[objId]);
+
 			RendererCore::AddModel(*newObj);
 		}
 	}
@@ -236,34 +243,48 @@ void CanICount()
 	std::cout << "3!" << '\n';
 }
 ImGUIElement* win = nullptr;
+DrawCall* VerifyUI = nullptr;
 void GDLevelLoader::LoadVerifier()
 {
-	DrawCall* VerifyUI = SceneManager().MainScene().CreateDrawCall();
+	VerifyUI = SceneManager().MainScene().CreateDrawCall();
+
 	VerifyUI->sort = DrawCall::Sorting::AtStartup;
 	VerifyUI->type = DrawCall::Type::UI;
 	VerifyUI->Close();
 
-	win = GUIML::NewGUIML("Game/UI/FirstTime.guiml", "Game/UI/FirstTime.css");
+	win = GUIML::NewGUIML("Game/UI/FirstTime.guiml");
 
 	TextureManager::UploadToGPU();
 
 	RendererCore::AddImGUIElement(*win, VerifyUI->Target());
-
-	/*Animation::Timeline* yo = Animation::New(80);
-	yo->AddTrigger(win->screenSize.x, 30.0f, yo->InSeconds(0.2f), yo->InSeconds(1.0f), Animation::Easing::BounceOut);
-	yo->AddTrigger(win->screenSize.y, 50.0f, yo->InSeconds(0.2f), yo->InSeconds(1.0f), Animation::Easing::BounceOut);
-	yo->AddTrigger(win->screenSize.x, 100.0f, yo->InSeconds(1.5f), yo->InSeconds(1.0f), Animation::Easing::BounceOut);
-	yo->AddTrigger(win->screenSize.y, 100.0f, yo->InSeconds(1.5f), yo->InSeconds(1.0f), Animation::Easing::BounceOut);
-	yo->AddTrigger(win->borderRadius, 0, yo->InSeconds(1.5f), yo->InSeconds(1.0f), Animation::Easing::Sinusoidal);
-	yo->Play();*/
 }
 
+bool GDL_CanLoadScene = true;
 void GDLevelLoader::OnUpdate()
 {
-	//std::cout << win->screenSize.x << '\n';
+	std::string bMessage = Broadcast::ShowBroadcastMessage("--rfp-play {Server URL}|{Level ID}");
+	if (Broadcast::Recieve(bMessage) && GDL_CanLoadScene)
+	{
+		std::string res = StringAPI::RemoveAll(bMessage, "--rfp-play ");
+		std::vector<std::string> values = StringAPI::SplitIntoVector(res, "|");
+
+		values[0] = SetURLPrefixes(values[0]);
+
+		if (values.size() == 1)
+			OpenServer(values[0]);
+		else if(values[1] == "")
+			OpenServer(values[0]);
+		else
+		{
+			SetupScene(values[0], std::stoi(values[1]));
+		}
+
+		Broadcast::Send("--rfp-loading");
+		GDL_CanLoadScene = false;
+	}
 }
 
-void GDLevelLoader::SetupScene()
+void GDLevelLoader::SetupScene(std::string url, int id)
 {
 	GDTextures = TextureManager::OpenTexturePack("Game/Textures/Blocks/blocks.gtxp");
 
@@ -273,7 +294,31 @@ void GDLevelLoader::SetupScene()
 	// How by Spu7nix: 63395980
 	// Future Funk by JonathanGD: 44062068
 
-	std::string urlResult = Web::Post("http://www.boomlings.com/database/downloadGJLevel22.php", "gameVersion=20&binaryVersion=35&gdw=0&levelID=1556066&secret=Wmfd2893gb7");
+	if (StringAPI::EndsWith(url, "/"))
+	{
+		std::cout << "Ends with '/'" << std::endl;
+	}
+
+	std::string finalUrl = "{}/database/downloadGJLevel22.php\0";
+
+	if (url.find("/server") != std::string::npos || url.find("/gdps/gdapi") != std::string::npos)
+		finalUrl = StringAPI::ReplaceAll(finalUrl, "/database", "");
+
+	finalUrl = StringAPI::ReplaceAll(finalUrl, "{}", url);
+
+	std::string formPost = "gameVersion=20&binaryVersion=35&gdw=0&levelID={}&secret=Wmfd2893gb7\0";
+	formPost = StringAPI::ReplaceAll(formPost, "{}", std::to_string(id));
+
+	std::string urlResult;
+
+	// I'm hardcoding the URL because 
+	// GD's CloudFlare protection actually 
+	// looks for the size of a const char*
+	// for some reason.
+	if(url == "http://boomlings.com")
+		urlResult = Web::Post("http://www.boomlings.com/database/downloadGJLevel22.php", formPost.c_str());
+	else
+		urlResult = Web::Post(finalUrl.c_str(), formPost.c_str());
 
 	std::string levelSubstring = StringAPI::GetSubstringBetween(urlResult, ":4:", ":5:");
 
@@ -302,4 +347,13 @@ void GDLevelLoader::SetupScene()
 	{
 		ReadLevel(levelSubstring);
 	}
+}
+
+void GDLevelLoader::OpenServer(std::string url)
+{
+	std::string finalUrl = url;
+	finalUrl += "/rfp/index.guiml";
+	std::cout << finalUrl << std::endl;
+	ImGUIElement* serverUI = GUIML::NewGUIML(finalUrl);
+	RendererCore::AddImGUIElement(*serverUI, VerifyUI->Target());
 }

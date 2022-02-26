@@ -1,7 +1,7 @@
 @font-face
 {
 	font-family: "Raleway";
-	src: "Editor/EditorResources/Fonts/Raleway-ExtraBold.ttf";
+	src: "Game/Fonts/Raleway-ExtraBold.ttf";
 }
 
 .Main
@@ -11,7 +11,27 @@
 	background-color: linear-gradient(rgb(65, 88, 208) 0%, rgb(200, 80, 192) 46%, rgb(255, 204, 112) 100%);
 	padding-x: 0px;
 	border-width: 0px;
+	position: absolute;
 	align: center;
+
+	broadcast[--rfp-loading]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(-100 0) |
+	new-frame(1s, 1) | --disable();
+}
+
+.Main-Menu
+{
+	position: absolute;
+	width: 100vw;
+	height: 100vh;
+	background-color: rgb(0, 0, 0, 0);
+	padding-x: 0px;
+	border-width: 0px;
+	align: center;
+	broadcast[go-to-settings]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(-100 0);
+	broadcast[out-from-settings]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(0 0);
+
+	broadcast[select-gdps-enter]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(-100 0);
+	broadcast[select-gdps-exit]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(0 0);
 }
 
 .Center
@@ -55,15 +75,23 @@
 	add-value(height = 520px) |
 
 	new-frame(3s, 2s, Quintic) |
-	add-value(width = 613px) |
-	add-value(height = 346px) |
+	add-value(width = 30%) |
+	add-value(height = 300px) |
 	add-value(align = 20% 50%);
 }
 
 .center-bold
 {
 	font-family: "Raleway";
-	font-size: 50px;
+	font-size: 40px;
+	color: rgb(1, 1, 1, 1);
+	align: center;
+}
+
+.version-title
+{
+	font-family: "Raleway";
+	font-size: 20px;
 	color: rgb(0, 0, 0, 0);
 
 	animation: begin(70) |
@@ -91,8 +119,14 @@
 	new-frame(5s, 1s, Quintic) |
 	add-value(align = 75% 50%) |
 
-	new-frame(7s, 1s, Quintic) |
+	new-frame(7s, 0.5s, Quintic) |
 	add-value(align = 50% 50%);
+
+	broadcast[go-to-settings]: begin(70) | 
+	new-frame(0, 1) | 
+	add-value(background-color = rgb[1, 1, 1, 1]) |
+	new-frame(1, 0.5s, Quintic) |
+	add-value(background-color = rgb[0, 0, 0, 1]);
 }
 
 
@@ -121,10 +155,225 @@
 	add-value(height = 300px) |
 	add-value(align = 100% 50%) |
 
-	new-frame(8s, 0.5s, Quintic) |
+	new-frame(7s, 0.5s, Quintic) |
 	add-value(width = 48%) |
-	add-value(height = 100px) |
+	add-value(height = 300px) |
 
-	new-frame(8s, 0.5s SinousoidalOut) |
+	new-frame(7s, 0.5s SinousoidalOut) |
 	add-value(background-color = rgb[0, 0, 0, 0]);
+}
+
+.butt
+{
+	font-family: "Raleway";
+	font-size: 40px;
+	color: rgb(0, 0, 0, 0);
+	background-color: rgb(0, 0, 0, 0);
+
+	animation: begin(70) |
+
+	new-frame(7s, 0.5s SinousoidalOut) |
+	add-value(background-color = rgb[0, 0, 0, 0.5]) |
+	add-value(color = rgb[255, 255, 255, 1]);
+
+	onhover: add-value(background-color = rgb[1, 0, 0, 0.5]);
+	onhoverup: begin(70) | new-frame(0, 0.5s, Sinousoidal) | add-value(background-color = rgb[0, 0, 0, 0.5]);
+}
+
+.Settings
+{
+	width: 70vw;
+	height: 70vh;
+	position: absolute;
+	align: center;
+	background-color: rgb(0, 0, 0, 0.5);
+	padding-x: 0px;
+	border-width: 0px;
+	animation: --move(100 0);
+
+	broadcast[go-to-settings]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(0 0);
+	broadcast[out-from-settings]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(100 0);
+}
+
+.settings-content
+{
+	width: 100vw;
+	height: 80vh;
+	position: absolute;
+	align: top;
+	padding-x: 0px;
+	border-width: 0px;
+	background-color: rgb(0, 0, 0, 0);
+}
+
+.settings-back-to-menu
+{
+	font-family: "Raleway";
+	font-size: 40px;
+	color: rgb(0, 0, 0, 0);
+	background-color: rgb(0, 0, 0, 0);
+
+	position: absolute;
+	align: bottom-left;
+
+	animation: begin(70) |
+
+	new-frame(7s, 0.5s SinousoidalOut) |
+	add-value(background-color = rgb[0, 0, 0, 0.5]) |
+	add-value(color = rgb[255, 255, 255, 1]);
+
+	onhover: add-value(background-color = rgb[1, 0, 0, 0.5]);
+	onhoverup: begin(70) | new-frame(0, 0.5s, Sinousoidal) | add-value(background-color = rgb[0, 0, 0, 0.5]);
+}
+
+.inp
+{
+	background-color: rgb(0, 0, 0, 0.5);
+}
+
+.s-title
+{
+	font-family: "Raleway";
+	font-size: 40px;
+	color: rgb(1, 1, 1, 1);
+}
+
+.s-text-value
+{
+	align: right;
+	background-color: rgb(0, 0, 0, 0.5);
+}
+
+.gdps-back-to-menu
+{
+	width: 100vw;
+	height: 45px;
+	position: absolute;
+	align: bottom;
+	background-color: rgb(0, 0, 0, 0);
+	padding-x: 0px;
+	border-width: 0px;
+}
+
+.gdps-back-to-menu-button
+{
+	font-family: "Raleway";
+	font-size: 40px;
+	color: rgb(1, 1, 1, 1);
+	background-color: rgb(0, 0, 0, 1);
+
+	position: absolute;
+	align: bottom-left;
+
+	onhover: add-value(background-color = rgb[1, 0, 0, 1]);
+	onhoverup: begin(70) | new-frame(0, 0.5s, Sinousoidal) | add-value(background-color = rgb[0, 0, 0, 1]);
+}
+
+.Select-GDPS
+{
+	width: 100vw;
+	max-width: 655px;
+	height: 100vh;
+	position: absolute;
+	align: center;
+	background-color: rgb(0, 0, 0, 0);
+	padding-x: 0px;
+	border-width: 0px;
+	animation: --move(0 200);
+
+	broadcast[select-gdps-enter]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(0 0);
+	broadcast[select-gdps-exit]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(0 200);
+
+	box-shadow-color: rgb(0, 0, 0, 0.5);
+	box-shadow-blur: 300px;
+}
+
+.Select-GDPS-Title
+{
+	width: 100vw;
+	height: 80px;
+	position: absolute;
+	align: top;
+	background-color: rgb(0, 0, 0, 0.8);
+	padding-x: 0px;
+	border-width: 0px;
+	animation: --move(200 0);
+
+	broadcast[select-gdps-enter]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(0 0);
+	broadcast[select-gdps-exit]: begin(70) | new-frame(0, 1s, QuinticOut) | --move(200 0);
+}
+
+.Select-GDPS-Title-Text
+{
+	font-family: "Raleway";
+	font-size: 60px;
+	color: rgb(1, 1, 1, 1);
+	position: absolute;
+	align: 48% 50%;
+}
+
+.Select-GDPS-Empty-Box
+{
+	width: 640px;
+	height: 360px;
+	background-color: rgb(0, 0, 0, 0);
+	padding-x: 0px;
+	border-width: 0px;
+}
+
+.Geometry-Dash
+{
+	width: 640px;
+	height: 360px;
+	background-image: "Game/Textures/Basics/gd-cover.png";
+	background-color: rgb(1, 1, 1, 1);
+	padding-x: 0px;
+	border-width: 0px;
+
+	onhover: begin(70) | new-frame(0, 0.2s, QuinticOut) | add-value(background-color = rgb[0.5, 0.5, 0.5, 1]);
+	onhoverup: begin(70) | new-frame(0, 0.2s, QuinticOut) | add-value(background-color = rgb[1, 1, 1, 1]);
+}
+
+.XGDPS
+{
+	width: 640px;
+	height: 360px;
+	background-image: "Game/Textures/Basics/xgdps-cover.png";
+	background-color: rgb(1, 1, 1, 1);
+	padding-x: 0px;
+	border-width: 0px;
+
+	onhover: begin(70) | new-frame(0, 0.2s, QuinticOut) | add-value(background-color = rgb[0.5, 0.5, 0.5, 1]);
+	onhoverup: begin(70) | new-frame(0, 0.2s, QuinticOut) | add-value(background-color = rgb[1, 1, 1, 1]);
+}
+
+.One-Point-Nine-GDPS
+{
+	width: 640px;
+	height: 360px;
+	background-image: "Game/Textures/Basics/19-gdps-cover.png";
+	background-color: rgb(1, 1, 1, 1);
+	padding-x: 0px;
+	border-width: 0px;
+
+	onhover: begin(70) | new-frame(0, 0.2s, QuinticOut) | add-value(background-color = rgb[0.5, 0.5, 0.5, 1]);
+	onhoverup: begin(70) | new-frame(0, 0.2s, QuinticOut) | add-value(background-color = rgb[1, 1, 1, 1]);
+}
+
+.GDPS-Editor-22
+{
+	width: 640px;
+	height: 360px;
+	background-image: "Game/Textures/Basics/gdps-editor-22-cover.png";
+	background-color: rgb(1, 1, 1, 1);
+	padding-x: 0px;
+	border-width: 0px;
+
+	onhover: begin(70) | new-frame(0, 0.2s, QuinticOut) | add-value(background-color = rgb[0.5, 0.5, 0.5, 1]);
+	onhoverup: begin(70) | new-frame(0, 0.2s, QuinticOut) | add-value(background-color = rgb[1, 1, 1, 1]);
+}
+
+.level-input
+{
+	background-color: rgb(0, 0, 0, 0.5);
 }

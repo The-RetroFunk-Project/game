@@ -1,5 +1,4 @@
 #include "Behaviour.h"
-#include "../Application/Application.h"
 
 int Hierarchy::highestScriptId = 0;
 std::vector<ScriptBehaviour*> Hierarchy::deleteList;

@@ -1,4 +1,5 @@
 #include "StringAPI.h"
+#include <sstream>
 #include <cstring>
 
 std::string StringAPI::ReplaceAll(std::string str, const std::string& from, const std::string& to)
@@ -47,11 +48,32 @@ std::vector<std::string> StringAPI::SplitIntoVector(const std::string& s, const 
 			newV.push_back(s.substr(i, s.length()));
 	}
 
+	if (newV.size() == 0)
+		newV.push_back(s);
+
 	return newV;
+}
+
+std::vector<std::string> StringAPI::GetLinesFromString(std::string s)
+{
+	std::vector<std::string> str;
+	std::istringstream f(s);
+	std::string line;
+	while (std::getline(f, line)) 
+	{
+		str.push_back(line);
+	}
+
+	return str;
 }
 
 bool StringAPI::StartsWith(std::string string, std::string starts)
 {
 	if (strncmp(string.c_str(), starts.c_str(), strlen(starts.c_str())) == 0) return 1;
 	return 0;
+}
+
+bool StringAPI::EndsWith(std::string string, std::string ends)
+{
+	return string.size() >= ends.size() && 0 == string.compare(ends.size() - ends.size(), ends.size(), ends);
 }

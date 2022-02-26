@@ -1,11 +1,56 @@
+<main-style src="Game/UI/FirstTime.css" />
 <guiml type="App" class="Main">
-	<div class="Center">
+	<div class="Main-Menu">
+		<div class="Center">
+		</div>
+		<div class="Logo">
+		</div>
+		<div class="Some-Line">
+		</div>
+		<div class="Dialogue-Box">
+			<button class="butt" onclick="broadcast('select-gdps-enter')">Play</button>
+			<button class="butt" onclick="broadcast('go-to-settings')">Settings</button>
+			<button class="butt">Credits</button>
+			<button class="butt">Exit</button>
+			<p class="version-title">Version 0.1.0</p>
+		</div>
 	</div>
-	<div class="Logo">
+	<div class="Select-GDPS">
+		<div class="Select-GDPS-Empty-Box">
+			<p class="center-bold" />
+			<p class="center-bold" />
+			<p class="center-bold">Custom:</p>
+			<input class="level-input" name="Server URL" broadcast="true" />
+			<input class="level-input" name="Level ID" broadcast="true" />
+			<button class="settings-back-to-menu" onclick="broadcast('--rfp-play {Server URL}|{Level ID}')">Join Server/Play Level</button>
+		</div>
+		<div class="Geometry-Dash">
+		</div>
+		<p class="center-bold">Geometry Dash</p>
+		<p class="center-bold"></p>
+		<div class="XGDPS">
+		</div>
+		<p class="center-bold">XGDPS</p>
+		<p class="center-bold"></p>
+		<div class="GDPS-Editor-22">
+		</div>
+		<p class="center-bold">GDPS Editor 2.2</p>
+		<p class="center-bold"></p>
+		<div class="One-Point-Nine-GDPS">
+		</div>
+		<p class="center-bold">1.9 GDPS</p>
+		<p class="center-bold"></p>
+		<div class="gdps-back-to-menu">
+			<button class="gdps-back-to-menu-button" onclick="broadcast('select-gdps-exit')">Back To Menu</button>
+		</div>
 	</div>
-	<div class="Some-Line">
+	<div class="Select-GDPS-Title">
+		<p class="Select-GDPS-Title-Text">Select GDPS</p>
 	</div>
-	<div class="Dialogue-Box">
-		<p class="center-bold">Loading...</p>
+	<div class="Settings">
+		<div class="settings-content">
+			<p class="s-title">Bitches</p><cont/><input class="s-text-value" name="Amount"/>
+		</div>
+		<button class="settings-back-to-menu" onclick="broadcast('out-from-settings')">Back To Menu</button>
 	</div>
 </guiml>

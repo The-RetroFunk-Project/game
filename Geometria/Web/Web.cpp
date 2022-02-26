@@ -42,6 +42,7 @@ std::string Web::Get(const char* urlLink, bool printProgress)
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 50L);
         curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, TRUE);
 
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
 
